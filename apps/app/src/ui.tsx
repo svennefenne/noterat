@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
+import { Component, useEffect, useId, useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { useI18n } from "./lib/i18n";
 
@@ -161,4 +161,21 @@ export function useStored<T extends string>(key: string, initial: T): [T, (v: T)
     }
   };
   return [value, set];
+}
+
+/** Something that failed while showing itself shows `fallback` instead, and the rest of the app goes on. */
+export class Caught extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  override componentDidCatch(error: unknown) {
+    console.error(error);
+  }
+
+  override render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
 }

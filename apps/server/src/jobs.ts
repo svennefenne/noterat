@@ -1,7 +1,16 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import type { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
-import { putTranscript, readMemo, setTranscription, type TranscriberInfo, type WorkerJob } from "@noterat/core";
+import {
+  canTranscribe,
+  putTranscriptFor,
+  recordingToTranscribe,
+  setTranscriptState,
+  wantsTranscript,
+  type TranscriberInfo,
+  type Transcription,
+  type WorkerJob,
+} from "@noterat/core";
 import type { DB } from "./db";
 import { fileResponse, fileRow, type FileStore } from "./files";
 import { Fail, readBody, signedIn, text, type Env } from "./http";
@@ -9,9 +18,10 @@ import { objectRow, roleOf, type ObjectRow } from "./objects";
 import type { Sync } from "./sync";
 
 /**
- * Speech to text: jobs for the worker (decision 6). A voice memo's recording, once it's on the server,
- * gets a job; the worker asks for work (waiting up to `wait` for some), says how far it's got, and hands
- * back the text, which the server writes into the memo's document, so it shows on every device at once.
+ * Speech to text: jobs for the worker (decisions 6 and 7). A recording in a voice memo or a journal
+ * entry, once it's on the server, gets a job; the worker asks for work (waiting up to `wait` for some),
+ * says how far it's got, and hands back the text, which the server writes into the thing's document
+ * (core's transcripts.ts says where), so it shows on every device at once.
  * The worker has a job for `lease` from its last word; one that goes quiet longer loses it, and the job
  * is queued again (up to `maxTries` tries in all).
  */
@@ -55,14 +65,14 @@ export function createJobs(o: JobOptions) {
     for (const w of [...waiters]) w();
   };
 
-  /** Write how a memo's transcription stands into it (unless it's been deleted meanwhile). */
-  async function memoState(objectId: string, change: Parameters<typeof sync.changeObject>[2]) {
+  /** Write how a recording's transcription stands into its thing (unless that's been deleted meanwhile). */
+  async function stateOf(objectId: string, hash: string, t: Transcription) {
     const obj = objectRow(db, objectId);
-    if (!obj || obj.deleted_at || obj.type !== "memo") return;
-    await sync.changeObject("memo", objectId, change);
+    if (!obj || obj.deleted_at || !canTranscribe(obj.type)) return;
+    await sync.changeObject(obj.type, objectId, (d) => setTranscriptState(obj.type, d, hash, t));
   }
 
-  /** Queue a memo's recording to be transcribed (once: a job already waiting or working is kept). */
+  /** Queue a recording to be transcribed (once: a job already waiting or working is kept). */
   async function enqueue(objectId: string, hash: string) {
     const had = db.prepare("select id from jobs where object_id = ? and hash = ? and status in ('queued', 'working')").get(objectId, hash);
     if (had) return;
@@ -75,7 +85,7 @@ export function createJobs(o: JobOptions) {
       t,
       t,
     );
-    await memoState(objectId, (d) => setTranscription(d, { status: "queued", at: t }));
+    await stateOf(objectId, hash, { status: "queued", at: t });
     wake();
   }
 
@@ -86,9 +96,9 @@ export function createJobs(o: JobOptions) {
     for (const job of lost) {
       const again = job.tries < maxTries;
       db.prepare("update jobs set status = ?, error = 'the worker stopped answering', updated_at = ? where id = ?").run(again ? "queued" : "failed", t, job.id);
-      void memoState(job.object_id, (d) =>
-        setTranscription(d, again ? { status: "queued", at: t } : { status: "failed", error: "the transcriber stopped answering", at: t }),
-      ).catch((err) => console.error("jobs:", err));
+      void stateOf(job.object_id, job.hash, again ? { status: "queued", at: t } : { status: "failed", error: "the transcriber stopped answering", at: t }).catch((err) =>
+        console.error("jobs:", err),
+      );
     }
   }
 
@@ -161,8 +171,7 @@ export function createJobs(o: JobOptions) {
         job = take(worker);
       }
       if (!job) return c.body(null, 204);
-      const objectId = jobRow(job.id)!.object_id;
-      await memoState(objectId, (d) => setTranscription(d, { status: "working", progress: 0, at: Date.now() }));
+      await stateOf(jobRow(job.id)!.object_id, job.file.hash, { status: "working", progress: 0, at: Date.now() });
       return c.json({ job });
     });
 
@@ -180,7 +189,7 @@ export function createJobs(o: JobOptions) {
       const progress = Math.min(1, Math.max(0, Number(body.progress) || 0));
       const t = Date.now();
       db.prepare("update jobs set lease_until = ?, updated_at = ? where id = ?").run(t + lease, t, job.id);
-      await memoState(job.object_id, (d) => setTranscription(d, { status: "working", progress, at: t }));
+      await stateOf(job.object_id, job.hash, { status: "working", progress, at: t });
       return c.body(null, 204);
     });
 
@@ -189,10 +198,11 @@ export function createJobs(o: JobOptions) {
       const body = await readBody(c);
       const result = text(body.text).trim().slice(0, 1_000_000);
       db.prepare("update jobs set status = 'done', error = null, updated_at = ? where id = ?").run(Date.now(), job.id);
-      await memoState(job.object_id, (d) => {
-        // (the memo might have had another recording put in meanwhile: then this text isn't its)
-        if (readMemo(d).audio?.hash === job.hash) putTranscript(d, result, { language: text(body.language) || undefined, model: text(body.model) || undefined });
-      });
+      const obj = objectRow(db, job.object_id);
+      if (obj && !obj.deleted_at && canTranscribe(obj.type))
+        await sync.changeObject(obj.type, obj.id, (d) =>
+          putTranscriptFor(obj.type, d, job.hash, result, { language: text(body.language) || undefined, model: text(body.model) || undefined }),
+        );
       return c.body(null, 204);
     });
 
@@ -203,21 +213,25 @@ export function createJobs(o: JobOptions) {
       const again = body.retry !== false && job.tries < maxTries;
       const t = Date.now();
       db.prepare("update jobs set status = ?, error = ?, updated_at = ? where id = ?").run(again ? "queued" : "failed", error, t, job.id);
-      await memoState(job.object_id, (d) => setTranscription(d, again ? { status: "queued", at: t } : { status: "failed", error, at: t }));
+      await stateOf(job.object_id, job.hash, again ? { status: "queued", at: t } : { status: "failed", error, at: t });
       if (again) wake();
       return c.body(null, 204);
     });
 
-    /** Transcribe a memo (again): its owner or an editor, once its recording is on the server. */
+    /**
+     * Transcribe a recording (again): a memo's, or (with { hash }) a journal entry's clip; by its owner or
+     * an editor, once the recording is on the server.
+     */
     app.post("/api/objects/:id/transcribe", auth, async (c) => {
+      const body = await readBody(c).catch(() => ({}) as Record<string, unknown>);
       const obj = objectRow(db, c.req.param("id"));
       if (!obj) throw new Fail("not_synced", 404);
       if (obj.deleted_at) throw new Fail("not_found", 404);
       const role = roleOf(db, obj.id, c.get("user").id);
       if (!role) throw new Fail("forbidden", 403);
       if (role === "viewer") throw new Fail("forbidden", 403);
-      if (obj.type !== "memo") throw new Fail("wrong_type", 400);
-      const hash = await sync.readObject("memo", obj.id, (d) => readMemo(d).audio?.hash ?? null);
+      if (!canTranscribe(obj.type)) throw new Fail("wrong_type", 400);
+      const hash = await sync.readObject(obj.type, obj.id, (d) => recordingToTranscribe(obj.type, d, text(body.hash) || undefined));
       if (!hash || !fileRow(db, hash) || !db.prepare("select 1 from file_refs where object_id = ? and hash = ?").get(obj.id, hash)) throw new Fail("not_uploaded", 409);
       await enqueue(obj.id, hash);
       return c.body(null, 202);
@@ -234,14 +248,11 @@ export function createJobs(o: JobOptions) {
     routes,
     enqueue,
 
-    /** A recording finished uploading: a memo that wants it transcribed gets its job. */
+    /** A recording finished uploading: a thing that wants it transcribed gets its job. */
     onUploaded(obj: ObjectRow, hash: string) {
-      if (obj.type !== "memo") return;
+      if (!canTranscribe(obj.type)) return;
       void sync
-        .readObject("memo", obj.id, (d) => {
-          const m = readMemo(d);
-          return m.audio?.hash === hash && m.transcription?.status === "wanted";
-        })
+        .readObject(obj.type, obj.id, (d) => wantsTranscript(obj.type, d, hash))
         .then((wanted) => (wanted ? enqueue(obj.id, hash) : undefined))
         .catch((err) => console.error("jobs:", err));
     },

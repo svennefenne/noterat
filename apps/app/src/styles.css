@@ -1704,3 +1704,437 @@ select {
     animation: none;
   }
 }
+
+/* ───────────── the journal (phase 3) ───────────── */
+
+a.icon-button {
+  color: inherit;
+  text-decoration: none;
+}
+
+.timeline section + section {
+  margin-top: 24px;
+}
+
+.month {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.entries {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entry-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px;
+  color: inherit;
+  text-decoration: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.entry-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+}
+
+.entry-day {
+  display: grid;
+  flex-shrink: 0;
+  justify-items: center;
+  width: 44px;
+  padding-top: 2px;
+  line-height: 1.1;
+}
+
+.entry-weekday {
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.entry-date {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.entry-main {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+}
+
+.entry-main .card-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.entry-thumb {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: var(--radius-small);
+}
+
+.entry-thumb.empty {
+  background: var(--hover);
+}
+
+.calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.calendar-head h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  text-transform: capitalize;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+.calendar-weekday {
+  padding: 4px 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.calendar-day {
+  position: relative;
+  aspect-ratio: 1;
+  min-height: 40px;
+  color: var(--text);
+  font: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  cursor: pointer;
+}
+
+.calendar-day.today {
+  font-weight: 700;
+  border-color: var(--accent);
+}
+
+.calendar-day.has::after {
+  content: "";
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+
+.calendar-day[aria-pressed="true"] {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.calendar-day[aria-pressed="true"]::after {
+  background: var(--accent-text);
+}
+
+.calendar-picked h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.calendar-picked h3::first-letter {
+  text-transform: uppercase;
+}
+
+.calendar-picked .entries {
+  margin-bottom: 12px;
+}
+
+.entry-date-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 4px;
+}
+
+.entry-date-field input {
+  min-height: 36px;
+  padding: 0 8px;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.875rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.entry-section {
+  margin-top: 24px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.entry-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.entry-section-head h2 {
+  margin: 8px 0;
+  font-size: 1rem;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(30%, 140px), 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.photo-grid li {
+  position: relative;
+}
+
+.photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  background: var(--hover);
+  border: none;
+  border-radius: var(--radius-small);
+  cursor: zoom-in;
+}
+
+.photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: #fff;
+  background: rgb(0 0 0 / 0.55);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.photo-large {
+  display: block;
+  max-width: 100%;
+  max-height: 75vh;
+  margin: 0 auto;
+  border-radius: var(--radius-small);
+}
+
+.photo-missing {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.clip {
+  margin-bottom: 12px;
+}
+
+.clip .player {
+  margin-bottom: 4px;
+}
+
+.clip-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.clip-meta .icon-button {
+  margin-left: auto;
+}
+
+.recorder.compact {
+  padding: 12px;
+  background: transparent;
+  border-style: dashed;
+}
+
+.recorder.compact .rec-button {
+  min-height: 48px;
+  padding: 0 20px 0 14px;
+  font-size: 1rem;
+}
+
+/* ───────────── search ───────────── */
+
+.hits {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hit {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  color: inherit;
+  text-decoration: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.hit:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+}
+
+.hit-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hit-head svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.hit-title {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hit-kind {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.hit-snippet {
+  color: var(--muted);
+  font-size: 0.9375rem;
+  overflow-wrap: anywhere;
+}
+
+.hit-snippet mark {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: 3px;
+}
+
+.lock-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ───────────── the lock ───────────── */
+
+.lock-screen {
+  display: grid;
+  place-items: center;
+  min-height: 50vh;
+}
+
+.lock-card {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  width: min(100%, 360px);
+  text-align: center;
+}
+
+.lock-card h1 {
+  margin: 0;
+  font-size: 1.375rem;
+}
+
+.lock-card .stack,
+.lock-card .primary,
+.lock-card .secondary {
+  width: 100%;
+}
+
+.lock-card .primary,
+.lock-card .secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.lock-icon {
+  color: var(--accent);
+}
+
+.lock-card input[type="password"] {
+  font-size: 1.5rem;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+
+.pin-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 719px) {
+  .section-link {
+    max-width: 110px;
+  }
+}
+
+.md-plain {
+  margin: 0;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
