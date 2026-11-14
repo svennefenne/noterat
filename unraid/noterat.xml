@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Noterat</Name>
+  <Repository>ghcr.io/svennefenne/noterat:latest</Repository>
+  <Registry>https://github.com/svennefenne/noterat/pkgs/container/noterat</Registry>
+  <Network>bridge</Network>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/svennefenne/noterat/issues</Support>
+  <Project>https://github.com/svennefenne/noterat</Project>
+  <Overview>Noterat: notes, a journal, voice memos, lists, a budget, a calendar, recipes and a receipt and document scanner, for you and the people you choose to share with. Live when you're online, and the Android app keeps working offline. Everything lives in one folder (appdata). Early days: accounts and the app's log-in so far; the sections come phase by phase.</Overview>
+  <Category>Productivity: Tools:</Category>
+  <WebUI>http://[IP]:[PORT:3000]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/svennefenne/noterat/main/unraid/noterat.xml</TemplateURL>
+  <ExtraParams>--restart unless-stopped</ExtraParams>
+  <Config Name="Web UI port" Target="3000" Default="3300" Mode="tcp" Description="Port of the website and the API the app uses. Put your reverse proxy (SWAG, Nginx Proxy Manager...) in front of it with HTTPS, so phones can reach it from anywhere and share links work." Type="Port" Display="always" Required="true" Mask="false">3300</Config>
+  <Config Name="Appdata" Target="/data" Default="/mnt/user/appdata/noterat" Mode="rw" Description="The database and everything people add. Back this up (the Appdata Backup plugin does)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/noterat</Config>
+  <Config Name="Public URL" Target="PUBLIC_URL" Default="" Mode="" Description="The address people use, e.g. https://noterat.example.com. Used for share links." Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="Time zone" Target="TZ" Default="Europe/Stockholm" Mode="" Description="For the calendar and reminders." Type="Variable" Display="always" Required="false" Mask="false">Europe/Stockholm</Config>
+  <Config Name="Visitor address header" Target="TRUSTED_IP_HEADER" Default="" Mode="" Description="Optional, behind a reverse proxy: the header it puts the visitor's address in (SWAG and Nginx Proxy Manager: x-real-ip; Cloudflare Tunnel: cf-connecting-ip), so password guessing is slowed down per visitor. Only set it when Noterat can't be reached except through that proxy." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User id Noterat runs as (99 = nobody on Unraid)." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group id (100 = users on Unraid)." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+  <Config Name="UMASK" Target="UMASK" Default="002" Mode="" Description="File permission mask for files Noterat creates." Type="Variable" Display="advanced" Required="false" Mask="false">002</Config>
+</Container>
