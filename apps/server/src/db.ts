@@ -31,6 +31,51 @@ const MIGRATIONS: string[] = [
   );
   create index sessions_user on sessions(user_id);
   `,
+  /* 2: things, who has them, and sharing (phase 1) */ `
+  -- one row per thing (a list…): id and type come from its document's name ("list/<id>"), the owner is
+  -- whoever synced it first; state is the Yjs document. A deleted thing keeps its row (deleted_at), so a
+  -- device that still has it learns it's gone instead of making it anew.
+  create table objects (
+    id text primary key,
+    type text not null,
+    owner_id integer not null references users(id) on delete cascade,
+    title text not null default '',
+    state blob,
+    created_at integer not null,
+    updated_at integer not null,
+    deleted_at integer
+  );
+
+  create table members (
+    object_id text not null references objects(id) on delete cascade,
+    user_id integer not null references users(id) on delete cascade,
+    role text not null check (role in ('owner', 'editor', 'viewer')),
+    added_at integer not null,
+    primary key (object_id, user_id)
+  );
+  create index members_user on members(user_id);
+
+  -- each person's home document (home/<user id>)
+  create table homes (
+    user_id integer primary key references users(id) on delete cascade,
+    state blob not null,
+    updated_at integer not null
+  );
+
+  -- a share link (to_id null; id: its token's sha256) or an invitation to someone on this server (to_id)
+  create table invites (
+    id text primary key,
+    object_id text not null references objects(id) on delete cascade,
+    from_id integer not null references users(id) on delete cascade,
+    to_id integer references users(id) on delete cascade,
+    role text not null check (role in ('editor', 'viewer')),
+    created_at integer not null,
+    expires_at integer not null,
+    used_at integer,
+    used_by integer references users(id) on delete set null
+  );
+  create index invites_object on invites(object_id);
+  `,
 ];
 
 /** Open (or make) the database at file (":memory:" for tests), brought up to the latest schema. */

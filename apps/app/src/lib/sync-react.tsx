@@ -1,0 +1,62 @@
+import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import type * as Y from "yjs";
+import { homeInvitations, homeItems, type HomeItem, type Invitation, type User } from "@noterat/core";
+import { signedInApi, type SignedInApi } from "./api";
+import type { Sync, SyncState } from "./sync";
+
+/** What the signed-in part of the app shares: who, where, their documents and the API. */
+export interface Session {
+  user: User;
+  base: string;
+  sync: Sync;
+  api: SignedInApi;
+}
+
+const Ctx = createContext<Session | null>(null);
+
+export function SessionProvider({ user, base, token, sync, children }: { user: User; base: string; token: string; sync: Sync; children: ReactNode }) {
+  const value = useMemo(() => ({ user, base, sync, api: signedInApi(base, token) }), [user, base, token, sync]);
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+export function useSession(): Session {
+  const s = useContext(Ctx);
+  if (!s) throw new Error("useSession outside SessionProvider");
+  return s;
+}
+
+export function useSyncState(): SyncState {
+  const { sync } = useSession();
+  return useSyncExternalStore(sync.subscribe, sync.getState);
+}
+
+/**
+ * A value read from a document, read again whenever it changes (here or elsewhere). read should be a
+ * function that doesn't change between renders (one defined outside the component).
+ */
+export function useDocValue<T>(doc: Y.Doc, read: (doc: Y.Doc) => T): T {
+  const [value, setValue] = useState(() => read(doc));
+  useEffect(() => {
+    const again = () => setValue(read(doc));
+    again();
+    doc.on("update", again);
+    return () => doc.off("update", again);
+  }, [doc, read]);
+  return value;
+}
+
+const readItems = (doc: Y.Doc) => [...homeItems(doc).entries()].map(([id, item]): [string, HomeItem] => [id, item]);
+const readInvitations = (doc: Y.Doc) => [...homeInvitations(doc).values()].sort((a, b) => b.at - a.at);
+
+/** What this person has: [id, item] for each thing, newest first. */
+export function useHomeItems(): [string, HomeItem][] {
+  const { sync } = useSession();
+  const items = useDocValue(sync.home, readItems);
+  return useMemo(() => [...items].sort((a, b) => b[1].addedAt - a[1].addedAt), [items]);
+}
+
+/** Invitations waiting for this person, newest first. */
+export function useInvitations(): Invitation[] {
+  const { sync } = useSession();
+  return useDocValue(sync.home, readInvitations);
+}

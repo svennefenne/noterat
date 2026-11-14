@@ -1,4 +1,5 @@
-import { useId, type InputHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
+import { X } from "lucide-react";
 import { useI18n } from "./lib/i18n";
 
 /** A screen before the app proper (connect, first account, log in): the name, a card, and the language switch. */
@@ -59,4 +60,105 @@ export function Submit({ busy, children }: { busy: boolean; children: ReactNode 
       {children}
     </button>
   );
+}
+
+/** A modal dialog (the page's own <dialog>): Escape or the close button closes it; its content is made only while it's open. */
+export function Dialog({ open, onClose, title, children, wide = false }: { open: boolean; onClose: () => void; title: string; children: ReactNode; wide?: boolean }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const id = useId();
+  const { t } = useI18n();
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (open && !d.open) {
+      d.showModal();
+      // (the dialog's own first field, rather than its close button)
+      d.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+    }
+    if (!open && d.open) d.close();
+  }, [open]);
+  return (
+    <dialog
+      ref={ref}
+      className={wide ? "dialog wide" : "dialog"}
+      aria-labelledby={id}
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+    >
+      {open && (
+        <>
+          <header className="dialog-head">
+            <h2 id={id}>{title}</h2>
+            <button type="button" className="icon-button" onClick={onClose} aria-label={t("share.close")}>
+              <X aria-hidden size={20} />
+            </button>
+          </header>
+          <div className="dialog-body">{children}</div>
+        </>
+      )}
+    </dialog>
+  );
+}
+
+/** A button that opens a small menu over the page; choosing something (or clicking outside, or Escape) closes it. */
+export function Menu({ label, icon, children, className = "" }: { label: string; icon: ReactNode; children: ReactNode; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const outside = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [open]);
+  return (
+    <div className={`menu ${className}`} ref={ref}>
+      <button type="button" className="icon-button" aria-label={label} title={label} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {icon}
+      </button>
+      {open && (
+        <div role="menu" className="menu-list" onClick={(e) => (e.target as HTMLElement).closest("[role=menuitem]") && setOpen(false)}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function MenuItem({ onSelect, children, danger = false, disabled = false }: { onSelect: () => void; children: ReactNode; danger?: boolean; disabled?: boolean }) {
+  return (
+    <button type="button" role="menuitem" className={danger ? "menu-item danger" : "menu-item"} onClick={onSelect} disabled={disabled}>
+      {children}
+    </button>
+  );
+}
+
+/** A value kept on this device between visits (a remembered view), or the given one. */
+export function useStored<T extends string>(key: string, initial: T): [T, (v: T) => void] {
+  const [value, setValue] = useState<T>(() => {
+    try {
+      return (localStorage.getItem(key) as T | null) ?? initial;
+    } catch {
+      return initial;
+    }
+  });
+  const set = (v: T) => {
+    setValue(v);
+    try {
+      localStorage.setItem(key, v);
+    } catch {
+      // (kept until the app closes)
+    }
+  };
+  return [value, set];
 }

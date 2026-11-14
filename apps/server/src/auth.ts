@@ -35,11 +35,14 @@ export const dummyHash = () => (dummy ??= hashPassword(crypto.randomBytes(16).to
 const DAY = 86_400_000;
 const SESSION_DAYS = 180;
 
-const tokenId = (token: string) => crypto.createHash("sha256").update(token).digest("base64url");
+/** What the server keeps of a token (a session's, a share link's): its sha256. */
+export const tokenId = (token: string) => crypto.createHash("sha256").update(token).digest("base64url");
+
+export const newToken = () => crypto.randomBytes(32).toString("base64url");
 
 /** A new session for a user; returns its token (the one time it's seen). */
 export function createSession(db: DB, userId: number, userAgent: string): string {
-  const token = crypto.randomBytes(32).toString("base64url");
+  const token = newToken();
   const t = Date.now();
   db.prepare("insert into sessions (id, user_id, created_at, last_used, expires_at, user_agent) values (?, ?, ?, ?, ?, ?)").run(
     tokenId(token),

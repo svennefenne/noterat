@@ -8,6 +8,14 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "fractional-indexing": "^4.0.0",
+    "yjs": "^13.6.33"
+  },
+  "devDependencies": {
+    "vitest": "^5.1.0"
   }
 }
