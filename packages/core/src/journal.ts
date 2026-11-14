@@ -1,6 +1,6 @@
 import * as Y from "yjs";
 import { firstLine, plainLine } from "./docs";
-import type { Transcription, TranscriptionStatus } from "./memos";
+import { memoText, readMemo, type Transcription, type TranscriptionStatus } from "./memos";
 
 /**
  * A journal entry (decision 7). Its document:
@@ -207,4 +207,22 @@ export function entryPreview(entry: EntryView, body: string, max = 160): string 
   const lines = body.split("\n").map(plainLine).filter(Boolean);
   const rest = (entry.title ? lines : lines.slice(1)).join(" ");
   return rest.length > max ? `${rest.slice(0, max - 1).trimEnd()}…` : rest;
+}
+
+/**
+ * A voice memo into a journal entry: its recording becomes one of the entry's clips, and its text (if
+ * it has any yet) goes at the end, as a clip's would. A memo still waiting for its text has the clip
+ * want it instead. Returns false if the memo has no recording (or the entry has it already).
+ */
+export function memoToEntry(memo: Y.Doc, entry: Y.Doc): boolean {
+  const m = readMemo(memo);
+  if (!m.audio || hasClip(entry, m.audio.hash)) return false;
+  const { hash, type, size, duration } = m.audio;
+  const text = memoText(memo).toString().trim();
+  const waiting = !text && !!m.transcription && m.transcription.status !== "failed";
+  entry.transact(() => {
+    addClip(entry, { hash, type, size, duration }, waiting);
+    if (text) putClipTranscript(entry, hash, text, { language: m.transcription?.language, model: m.transcription?.model });
+  });
+  return true;
 }

@@ -62,7 +62,7 @@ function MemoPage({ id, role }: { id: string; role: MemberRole }) {
         <div className="list-title-row">
           <TitleInput value={memo.title} placeholder={title} readOnly={readOnly} onCommit={(v) => setMemoTitle(doc, v)} />
           <div className="list-actions">
-            <button type="button" className="primary small" onClick={() => setMoving(true)} disabled={!text.trim()}>
+            <button type="button" className="primary small" onClick={() => setMoving(true)} disabled={!text.trim() && !memo.audio}>
               <ArrowRightLeft aria-hidden size={16} /> {t("memo.move")}
             </button>
             <button type="button" className="secondary small" onClick={() => setSharing(true)}>

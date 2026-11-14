@@ -109,6 +109,16 @@ export class Files {
     return upload;
   }
 
+  /**
+   * A file this device or the server already has, for one more thing (a memo's recording put in a
+   * journal entry): the server is told the thing refers to it too, now or once there's a connection.
+   */
+  async link(upload: Upload) {
+    await req((await this.store("uploads", "readwrite")).put(upload));
+    await this.refresh();
+    this.kick();
+  }
+
   /** A file: from the device, else fetched from the server (and kept). Null if it can't be had now. */
   async get(hash: string): Promise<Blob | null> {
     const here = (await req((await this.store("blobs", "readonly")).get(hash))) as Blob | undefined;
@@ -159,12 +169,13 @@ export class Files {
       });
       if (status && !status.complete) received = status.received;
       const blob = (await req((await this.store("blobs", "readonly")).get(u.hash))) as Blob | undefined;
-      if (!blob) return this.drop(u);
+      // (not on this device: fine if the server has it; otherwise the device that has it hasn't sent it yet)
+      if (!blob && !status?.complete) return progress(0, true), "later";
       // (a file the server already has gets one empty request, which makes this thing refer to it)
       let empty = !!status?.complete;
       do {
         progress(received, false);
-        const piece = empty ? new Blob([]) : blob.slice(received, received + CHUNK_SIZE);
+        const piece = empty || !blob ? new Blob([]) : blob.slice(received, received + CHUNK_SIZE);
         empty = false;
         const q = new URLSearchParams({ object: u.objectId, offset: String(received), size: String(u.size), type: u.type });
         try {

@@ -89,13 +89,14 @@ then mostly a document type and its screens.
 - **Notes**: Markdown, written as Markdown (CodeMirror, with the marks dimmed and a toolbar on the
   phone) and read as it looks; tags (shared with the note), folders and pinning (each person's own);
   edited together live, with the others' cursors (decision 6).
-- **Journal**: an entry per document, about a day, with text (Markdown), voice clips and photos (made
-  smaller on the device); a timeline by month and a calendar; a clip's text goes at the end of the entry;
+- **Journal**: an entry per document, about a day, with text (Markdown), voice clips (recorded there or
+  taken from the voice memos) and photos (from the camera or the gallery, made smaller on the device); a
+  timeline by month and a calendar; a clip's text goes at the end of the entry;
   the journal (or the whole app) can be locked with the fingerprint, or a PIN on the web (decision 7).
 - **Voice memos**: one tap to record (or add an audio file); the recording uploads in pieces when
   there's a connection, and transcription is a job for the worker, which asks the server for work
-  (decision 6); "Move to…" turns a memo into a new note, the end of a note or list rows (one per line),
-  and later a journal entry or a calendar event.
+  (decision 6); "Move to…" turns a memo into a new note, the end of a note, list rows (one per line) or
+  a journal entry (its recording as a clip, its text at the end), and later a calendar event.
 - **Finances**: a monthly budget with categories (envelope or zero-based), transactions, recurring
   items, savings goals, reports, CSV import from the bank, a shared household budget. Amounts are
   integers in öre. Receipts from the scanner can become transactions.
