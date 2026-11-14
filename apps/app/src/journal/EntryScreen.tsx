@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { ImagePlus, MoreVertical, Share2, Trash2, X } from "lucide-react";
+import { Camera, ImagePlus, Mic, MoreVertical, Share2, Trash2, X } from "lucide-react";
 import type * as Y from "yjs";
 import {
   addClip,
@@ -17,7 +17,7 @@ import {
   type MemberRole,
   type Photo,
 } from "@noterat/core";
-import { ApiError } from "../lib/api";
+import { ApiError, isApp } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { shrinkPhoto } from "../lib/images";
 import { useDocValue, useSession, useSyncState } from "../lib/sync-react";
@@ -29,6 +29,7 @@ import { Back, NotHere, useAway, usePresence, useThing } from "../things/parts";
 import { ShareDialog } from "../things/ShareDialog";
 import { useFileUrl } from "../things/useFileUrl";
 import { Dialog, Menu, MenuItem, Problem } from "../ui";
+import { FromMemos } from "./FromMemos";
 import { dayName } from "./JournalScreen";
 
 const readBody = (doc: Y.Doc) => entryBody(doc).toString();
@@ -54,8 +55,10 @@ function EntryPage({ id, role }: { id: string; role: MemberRole }) {
   const [sharing, setSharing] = useState(false);
   const [shown, setShown] = useState<Photo | null>(null);
   const [adding, setAdding] = useState(0);
+  const [picking, setPicking] = useState(false);
   const { away, problem, setProblem } = useAway("journal", id);
   const picker = useRef<HTMLInputElement>(null);
+  const camera = useRef<HTMLInputElement>(null);
   const readOnly = role === "viewer";
   const awareness = sync.awareness(name);
   usePresence(awareness);
@@ -144,12 +147,21 @@ function EntryPage({ id, role }: { id: string; role: MemberRole }) {
         <div className="entry-section-head">
           <h2>{t("entry.photos")}</h2>
           {!readOnly && entry.photos.length < MAX_PHOTOS && (
-            <>
+            <div className="entry-section-actions">
+              {/* (straight to the camera on a phone: capture; a computer would only offer files) */}
+              {(isApp || matchMedia("(pointer: coarse)").matches) && (
+                <>
+                  <button type="button" className="secondary small" onClick={() => camera.current?.click()} disabled={adding > 0}>
+                    <Camera aria-hidden size={16} /> {t("entry.takePhoto")}
+                  </button>
+                  <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => void photos(e)} />
+                </>
+              )}
               <button type="button" className="secondary small" onClick={() => picker.current?.click()} disabled={adding > 0}>
                 <ImagePlus aria-hidden size={16} /> {adding > 0 ? t("entry.addingPhotos", { n: adding }) : t("entry.addPhotos")}
               </button>
               <input ref={picker} type="file" accept="image/*" multiple hidden onChange={(e) => void photos(e)} />
-            </>
+            </div>
           )}
         </div>
         {entry.photos.length > 0 && (
@@ -193,11 +205,21 @@ function EntryPage({ id, role }: { id: string; role: MemberRole }) {
             </div>
           </div>
         ))}
-        {!readOnly && <RecordPanel onRecorded={clip} compact />}
+        {!readOnly && (
+          <>
+            <RecordPanel onRecorded={clip} compact />
+            <button type="button" className="secondary small from-memos" onClick={() => setPicking(true)}>
+              <Mic aria-hidden size={16} /> {t("fromMemos.open")}
+            </button>
+          </>
+        )}
       </section>
 
       <Dialog open={sharing} onClose={() => setSharing(false)} title={t("share.title", { title })}>
         <ShareDialog id={id} />
+      </Dialog>
+      <Dialog open={picking} onClose={() => setPicking(false)} title={t("fromMemos.title")}>
+        <FromMemos entryId={id} has={entry.clips.map((c) => c.hash)} onDone={() => setPicking(false)} />
       </Dialog>
       <Dialog open={!!shown} onClose={() => setShown(null)} title={title} wide>
         {shown && <PhotoImage hash={shown.hash} large />}

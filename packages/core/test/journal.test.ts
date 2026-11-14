@@ -14,6 +14,7 @@ import {
   initMemo,
   initNote,
   memoText,
+  memoToEntry,
   putTranscriptFor,
   readEntry,
   readMemo,
@@ -101,5 +102,36 @@ describe("what's searchable", () => {
     expect(fold("Köttbullar ÅÄÖ é")).toBe("kottbullar aao e");
     const odd = "İstanbul 😀 Ö";
     expect(fold(odd)).toHaveLength(odd.length);
+  });
+});
+
+describe("a voice memo moved to the journal", () => {
+  const audio = { hash: h("m"), type: "audio/webm", size: 2000, duration: 9 };
+
+  it("becomes a clip, with its text at the end of the entry", () => {
+    const memo = new Y.Doc();
+    initMemo(memo, { audio, transcribe: true, by: 1 });
+    putTranscriptFor("memo", memo, h("m"), "Köp blommor till mormor.", { language: "sv", model: "kb" });
+    const entry = new Y.Doc();
+    initEntry(entry, { body: "En lång dag.", by: 1 });
+    expect(memoToEntry(memo, entry)).toBe(true);
+    expect(entryBody(entry).toString()).toBe("En lång dag.\n\nKöp blommor till mormor.\n");
+    expect(readEntry(entry).clips).toMatchObject([{ hash: h("m"), duration: 9, transcription: { status: "done", language: "sv" } }]);
+    // (once: the entry has that recording already)
+    expect(memoToEntry(memo, entry)).toBe(false);
+  });
+
+  it("wants its text in the entry when the memo is still waiting for it", () => {
+    const memo = new Y.Doc();
+    initMemo(memo, { audio, transcribe: true, by: 1 });
+    const entry = new Y.Doc();
+    initEntry(entry, { by: 1 });
+    memoToEntry(memo, entry);
+    expect(wantsTranscript("journal", entry, h("m"))).toBe(true);
+
+    const plain = new Y.Doc();
+    initMemo(plain, { audio: { ...audio, hash: h("p") }, transcribe: false, by: 1 });
+    memoToEntry(plain, entry);
+    expect(readEntry(entry).clips.find((c) => c.hash === h("p"))!.transcription).toBeNull();
   });
 });

@@ -36,6 +36,14 @@
         </provider>
     </application>
 
+    <!-- the camera app, for "Take a photo" (since Android 11 an app sees only what it says it looks for;
+         without this the WebView falls back to picking a file). No CAMERA permission: the camera app takes it. -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />

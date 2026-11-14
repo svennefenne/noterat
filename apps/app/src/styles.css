@@ -2138,3 +2138,66 @@ a.icon-button {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.entry-section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.from-memos {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.pick-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  cursor: pointer;
+}
+
+.pick:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.pick:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.pick svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.pick-main {
+  display: grid;
+  min-width: 0;
+}
+
+.pick-title {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

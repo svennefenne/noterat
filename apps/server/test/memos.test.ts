@@ -7,6 +7,7 @@ import {
   initEntry,
   initMemo,
   memoText,
+  memoToEntry,
   newObjectId,
   objectDocName,
   readEntry,
@@ -244,5 +245,29 @@ describe("a journal entry's voice clip", () => {
     await until(() => entryBody(entry.doc).toString().endsWith("Vi grillade på altanen.\n\nSen kom regnet.\n"), "the second text after the first");
     // (a clip that isn't in the entry can't be asked for)
     expect((await call<{ error: string }>(base, "POST", `/api/objects/${id}/transcribe`, ada.token, { hash: "f".repeat(64) })).json.error).toBe("not_uploaded");
+  });
+});
+
+describe("a memo's recording put in a journal entry", () => {
+  it("is linked without being sent again, readable through the entry, and transcribed for it", async () => {
+    const { base, ada, bo, id: memoId, audio, memo } = await recorded();
+    const hash = await upload(base, ada.token, memoId, audio);
+    await until(() => readMemo(memo.doc).transcription?.status === "queued", "the memo to be queued");
+
+    const entryId = newObjectId();
+    const entry = device(base, ada.token)(objectDocName("journal", entryId));
+    initEntry(entry.doc, { body: "Dagens tankar.", by: ada.user.id });
+    memoToEntry(memo.doc, entry.doc);
+    await synced(entry.provider);
+    // (what the app does: the server has the file, so an empty piece just links it to the entry)
+    expect((await put(base, ada.token, hash, { object: entryId, offset: 0, size: audio.length, body: new Uint8Array() })).json).toEqual({ received: audio.length, complete: true });
+
+    // the entry's clip still wanted its text (the memo had none yet): it gets a job of its own
+    await until(() => readEntry(entry.doc).clips[0]?.transcription?.status === "queued", "the entry's clip to be queued");
+
+    // Bo gets only the entry, and can play its clip
+    const shared = await call<ShareReply>(base, "POST", `/api/objects/${entryId}/share`, ada.token, { role: "viewer", userId: bo.user.id });
+    await call(base, "POST", `/api/invitations/${shared.json.kind === "invitation" ? shared.json.id : ""}/accept`, bo.token);
+    expect((await fetch(`${base}/api/files/${hash}`, { headers: { Authorization: `Bearer ${bo.token}` } })).status).toBe(200);
   });
 });

@@ -23,6 +23,10 @@ already says every thing is its own document, and that search runs on the device
 - **Photos** are made smaller on the device before they're kept (at most 2048 px on the longest side,
   JPEG), which also drops what the camera wrote into them (where it was taken). They are files like a
   memo's recording (decision 6), referred to by hash.
+- **A voice memo can go into the journal** (from the memo, "Move to…", or from the entry, "From voice
+  memos…"): its recording becomes a clip of the entry, by the same hash, and the server is told the entry
+  refers to it too (an empty upload), so whoever has the entry can play it; its text goes at the end, or,
+  if it has none yet, the clip waits for its own.
 - **A voice clip's text goes at the end of the entry**, after a blank line, when the worker has done it.
   The server's jobs work for any thing with recordings in it: core's `transcripts.ts` says, per type, where
   a recording is, whether it wants transcribing, and where its text goes.
