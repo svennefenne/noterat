@@ -1,0 +1,6 @@
+# HTTPS for Noterat (docker compose --profile https). Caddy gets the certificate by itself, and passes
+# the live sync's WebSocket through as it is.
+{$NOTERAT_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy noterat:3000
+}

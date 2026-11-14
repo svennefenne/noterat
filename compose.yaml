@@ -1,0 +1,51 @@
+# Noterat on a home server (on Unraid, the template in unraid/ does the same).
+#
+#   cp .env.example .env                    # then edit .env
+#   docker compose up -d                    # Noterat on http://<server>:3300
+#   docker compose --profile https up -d    # + Caddy: automatic HTTPS for your domain
+#
+# Phones outside your home network need HTTPS (and share links need an address that works
+# everywhere): use the https profile, or your own reverse proxy (SWAG, Nginx Proxy Manager…).
+
+services:
+  noterat:
+    image: ghcr.io/svennefenne/noterat:latest
+    build: .
+    container_name: noterat
+    restart: unless-stopped
+    ports:
+      - "${NOTERAT_PORT:-3300}:3000"
+    environment:
+      TZ: ${TZ:-Europe/Stockholm}
+      # who owns the files in the data folder (1000:1000 is the first user on most Linux machines)
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      # the address people use, e.g. https://noterat.example.com (share links)
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      # behind a proxy that passes on the visitor's address in a header (slows down password guessing per visitor)
+      TRUSTED_IP_HEADER: ${TRUSTED_IP_HEADER:-}
+    volumes:
+      # the database and everything people add: back this folder up
+      - ${NOTERAT_DATA:-./data}:/data
+
+  # ── HTTPS with Caddy: point your domain's DNS at your home IP and forward ports 80 and 443 ──
+  caddy:
+    profiles: ["https"]
+    image: caddy:2
+    container_name: noterat-caddy
+    restart: unless-stopped
+    depends_on: [noterat]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      NOTERAT_DOMAIN: ${NOTERAT_DOMAIN:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:

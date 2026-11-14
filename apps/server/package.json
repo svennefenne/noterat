@@ -1,0 +1,27 @@
+{
+  "name": "@noterat/server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Noterat's server: accounts and sessions now; sharing, live sync and files from phase 1 on.",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "node build.mjs",
+    "start": "node dist/server.mjs",
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.8",
+    "@noterat/core": "*",
+    "better-sqlite3": "^13.2.0",
+    "hono": "^4.13.18"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^22.20.5",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "vitest": "^5.1.0"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "noterat",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared notes, journal, voice memos, lists, finances, calendar, recipes and a receipt and document scanner. Self-hosted and offline first.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "npm run build -w @noterat/server && npm run build -w @noterat/app",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.2.0": true,
+    "esbuild@0.28.2": true
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.15.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.14.0",
+    "typescript": "~6.0",
+    "typescript-eslint": "^8.72.2"
+  }
+}

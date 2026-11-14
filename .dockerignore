@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+.data
+data
+.git
+.github
+.claude
+*.log
+.env*
+docs
+apps/app/android

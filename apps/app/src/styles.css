@@ -1,0 +1,252 @@
+/*
+ * Noterat's look, for now: calm and paper-like, in light and dark (following the device). Colours are
+ * tokens here; the screens use only the tokens. A proper design pass comes with the first sections.
+ */
+:root {
+  --bg: #f5f2ec;
+  --surface: #fffdf9;
+  --text: #1f1d1a;
+  --muted: #69645b;
+  --line: #e0dbd1;
+  --accent: #2f5d50;
+  --accent-text: #f5f2ec;
+  --accent-soft: #e2ebe7;
+  --danger: #a3261c;
+  --danger-soft: #f7e4e1;
+  --radius: 14px;
+  --radius-small: 10px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161514;
+    --surface: #201e1c;
+    --text: #ece8e1;
+    --muted: #a49e94;
+    --line: #36332f;
+    --accent: #8cc5b0;
+    --accent-text: #10201b;
+    --accent-soft: #22322d;
+    --danger: #f2a49a;
+    --danger-soft: #3a2320;
+    color-scheme: dark;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* a screen before the app proper: centred, clear of the phone's notch and gesture bar */
+.page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.brand img {
+  flex: none;
+  border-radius: 10px;
+}
+
+.brand-name {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.brand-tagline {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 1.5rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.intro {
+  margin: 0 0 20px;
+  color: var(--muted);
+}
+
+form,
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+label {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+input {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  font: inherit;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+}
+
+input::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+input:focus-visible,
+button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 2px;
+}
+
+input:focus-visible {
+  border-color: var(--accent);
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+button {
+  min-height: 48px;
+  padding: 0 18px;
+  font: inherit;
+  border-radius: var(--radius-small);
+  cursor: pointer;
+}
+
+.primary {
+  margin-top: 4px;
+  color: var(--accent-text);
+  font-weight: 600;
+  background: var(--accent);
+  border: none;
+}
+
+.primary:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.secondary {
+  width: 100%;
+  margin-top: 20px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--line);
+}
+
+.link {
+  min-height: 44px;
+  padding: 0 8px;
+  color: var(--muted);
+  background: none;
+  border: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.problem,
+.notice {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 0.9375rem;
+  border-radius: var(--radius-small);
+}
+
+.problem {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.notice {
+  margin-bottom: 16px;
+  background: var(--accent-soft);
+}
+
+.card > .problem {
+  margin-bottom: 16px;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--muted);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.page-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
