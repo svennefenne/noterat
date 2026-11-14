@@ -7,3 +7,10 @@ dist
 !.env.example
 *.tsbuildinfo
 .DS_Store
+# APKs and their zips, downloaded from CI to try
+*.apk
+noterat-android-*.zip
+# the worker's Python
+__pycache__
+.venv
+.pytest_cache

@@ -8,10 +8,22 @@ import { createSync } from "./sync";
 
 const db = openDb(path.join(config.dataDir, "noterat.db"));
 const sync = createSync(db);
-const app = createApp({ db, sync, version: config.version, webDir: config.webDir, trustedIpHeader: config.trustedIpHeader, publicUrl: config.publicUrl });
+const app = createApp({
+  db,
+  sync,
+  version: config.version,
+  webDir: config.webDir,
+  trustedIpHeader: config.trustedIpHeader,
+  publicUrl: config.publicUrl,
+  dataDir: config.dataDir,
+  workerToken: config.workerToken,
+  transcribeLanguage: config.transcribeLanguage,
+});
 
 const server = serve({ fetch: app.fetch, port: config.port, hostname: "0.0.0.0" }, (info) => {
-  console.log(`Noterat ${config.version} on port ${info.port}; data in ${config.dataDir}${config.webDir ? "" : " (no WEB_DIR: API only)"}`);
+  console.log(
+    `Noterat ${config.version} on port ${info.port}; data in ${config.dataDir}${config.webDir ? "" : " (no WEB_DIR: API only)"}; transcription ${config.workerToken ? "on" : "off (no WORKER_TOKEN)"}`,
+  );
 }) as Server;
 sync.attach(server);
 
@@ -20,6 +32,7 @@ async function stop() {
   if (stopping) return;
   stopping = true;
   // (what's waiting is stored; open connections get a few seconds to finish)
+  app.jobs.stop();
   await sync.stop();
   const done = () => {
     db.close();

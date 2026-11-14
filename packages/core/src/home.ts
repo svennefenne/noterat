@@ -11,6 +11,8 @@ import type { ObjectType } from "./docs";
  *   have (deleted, or no longer shared).
  * - invitations: someone on the same server wants to share something with them. The server puts it
  *   here, so it shows at once on every device that's online; accepting or declining goes through the API.
+ * - prefs: how they keep their things (pinned, in which folder), by id. Only their devices write it, so
+ *   it never meets the server's changes to items. (Decision 6.)
  */
 
 export interface HomeItem {
@@ -31,3 +33,24 @@ export interface Invitation {
 
 export const homeItems = (doc: Y.Doc) => doc.getMap<HomeItem>("items");
 export const homeInvitations = (doc: Y.Doc) => doc.getMap<Invitation>("invitations");
+
+/** One person's way of keeping a thing: not shared with anyone it's shared with. */
+export interface ItemPrefs {
+  pinned?: boolean;
+  /** a folder's name ("" or missing: none) */
+  folder?: string;
+}
+
+export const homePrefs = (doc: Y.Doc) => doc.getMap<ItemPrefs>("prefs");
+
+export const FOLDER_MAX = 40;
+
+/** Change how someone keeps a thing (pinned, folder); what's left empty is dropped. */
+export function setPrefs(doc: Y.Doc, id: string, patch: Partial<ItemPrefs>) {
+  const next: ItemPrefs = { ...homePrefs(doc).get(id), ...patch };
+  if (!next.pinned) delete next.pinned;
+  next.folder = (next.folder ?? "").replace(/\s+/g, " ").trim().slice(0, FOLDER_MAX);
+  if (!next.folder) delete next.folder;
+  if (Object.keys(next).length === 0) homePrefs(doc).delete(id);
+  else homePrefs(doc).set(id, next);
+}

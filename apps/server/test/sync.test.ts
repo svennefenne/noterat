@@ -1,9 +1,5 @@
-import type { AddressInfo } from "node:net";
 import { isDeepStrictEqual } from "node:util";
-import type { Server } from "node:http";
-import { serve } from "@hono/node-server";
-import { HocuspocusProvider, HocuspocusProviderWebsocket } from "@hocuspocus/provider";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
 import {
   addRow,
@@ -21,89 +17,8 @@ import {
   type ShareState,
   type SignupReply,
 } from "@noterat/core";
-import { createApp } from "../src/app";
-import { createSession, hashPassword } from "../src/auth";
-import { openDb, type DB } from "../src/db";
 import { objectRow } from "../src/objects";
-import { createSync } from "../src/sync";
-import { createUser } from "../src/users";
-
-/**
- * The server for real: HTTP and the sync's WebSocket on a free port, and devices that connect to it the
- * way the app does (HocuspocusProvider, one Yjs document per thing). "Offline" is a device whose
- * connection is cut while it goes on changing things.
- */
-
-const stops: (() => Promise<void>)[] = [];
-afterEach(async () => {
-  for (const stop of stops.splice(0).reverse()) await stop();
-});
-
-async function startServer() {
-  const db = openDb(":memory:");
-  const sync = createSync(db, { debounce: 20, maxDebounce: 100 });
-  const app = createApp({ db, sync, version: "test", webDir: null, trustedIpHeader: "", publicUrl: "" });
-  const server = await new Promise<Server>((resolve) => {
-    const s = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" }, () => resolve(s as Server));
-  });
-  sync.attach(server);
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  stops.push(async () => {
-    await sync.stop();
-    await new Promise((r) => server.close(r));
-    db.close();
-  });
-  return { db, base };
-}
-
-async function account(db: DB, username: string) {
-  const user = createUser(db, { username, displayName: username[0]!.toUpperCase() + username.slice(1), passwordHash: await hashPassword("a long enough password"), role: "member" });
-  return { user, token: createSession(db, user.id, "test") };
-}
-
-async function call<T>(base: string, method: string, path: string, token?: string, body?: unknown): Promise<{ status: number; json: T }> {
-  const res = await fetch(base + path, {
-    method,
-    headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  return { status: res.status, json: (res.status === 204 ? null : await res.json()) as T };
-}
-
-/** A device logged in as someone: it opens documents and keeps them in sync, as the app does. */
-function device(base: string, token: string) {
-  const providers: HocuspocusProvider[] = [];
-  stops.push(async () => providers.forEach((p) => (p.destroy(), p.configuration.websocketProvider.destroy())));
-  return (name: string) => {
-    const doc = new Y.Doc();
-    const refused: string[] = [];
-    const socket = new HocuspocusProviderWebsocket({ url: `${base.replace("http", "ws")}/sync`, WebSocketPolyfill: WebSocket });
-    const provider = new HocuspocusProvider({ websocketProvider: socket, name, document: doc, token, onAuthenticationFailed: ({ reason }) => refused.push(reason) });
-    provider.attach();
-    providers.push(provider);
-    return {
-      doc,
-      provider,
-      refused,
-      /** the connection lost, until it's really gone */
-      offline: async () => {
-        socket.disconnect();
-        await until(() => socket.status === "disconnected", "the device to be offline");
-      },
-      online: () => void socket.connect(),
-    };
-  };
-}
-
-async function until(check: () => boolean, what: string, ms = 4000) {
-  const end = Date.now() + ms;
-  while (!check()) {
-    if (Date.now() > end) throw new Error(`waited ${ms} ms for ${what}`);
-    await new Promise((r) => setTimeout(r, 20));
-  }
-}
-
-const synced = (p: HocuspocusProvider) => until(() => p.isSynced && !p.hasUnsyncedChanges, "the device to be synced");
+import { account, call, device, startServer, synced, until } from "./helpers";
 
 const columns = [
   { name: "Bought", type: "check" as const },

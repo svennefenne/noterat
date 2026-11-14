@@ -6,8 +6,8 @@ import type * as Y from "yjs";
  * maker becomes its owner. Each person also has a home document, "home/<user id>" (see home.ts).
  */
 
-/** The kinds of thing there are (phase 1: lists; the others arrive with their phases). */
-export const OBJECT_TYPES = ["list"] as const;
+/** The kinds of thing there are (lists from phase 1, notes and voice memos from phase 2; the others arrive with their phases). */
+export const OBJECT_TYPES = ["list", "note", "memo"] as const;
 export type ObjectType = (typeof OBJECT_TYPES)[number];
 export const isObjectType = (t: unknown): t is ObjectType => OBJECT_TYPES.includes(t as ObjectType);
 
@@ -44,8 +44,32 @@ export function parseDocName(name: string): DocName | null {
   return isObjectType(kind) && isObjectId(rest) ? { kind: "object", type: kind, id: rest } : null;
 }
 
-/** A thing's title, from its "meta" map (every type has one): what share links and invitations show. */
+/**
+ * A thing's title, from its "meta" map (every type has one): what share links and invitations show. A
+ * note or memo without one goes by the first line of its text.
+ */
 export function docTitle(doc: Y.Doc): string {
   const t = doc.getMap("meta").get("title");
-  return typeof t === "string" ? t.trim().slice(0, 200) : "";
+  if (typeof t === "string" && t.trim()) return t.trim().slice(0, 200);
+  for (const name of ["body", "text"]) if (doc.share.has(name)) return firstLine(doc.getText(name).toString());
+  return "";
+}
+
+/** The first line of some Markdown with something in it, as plain words ("# Inköp" → "Inköp"). */
+export function firstLine(text: string, max = 120): string {
+  for (const raw of text.split("\n")) {
+    const line = plainLine(raw);
+    if (line) return line.length > max ? `${line.slice(0, max - 1).trimEnd()}…` : line;
+  }
+  return "";
+}
+
+/** A line of Markdown without its marks: heading, list, task box, quote, emphasis, code, link targets. */
+export function plainLine(line: string): string {
+  return line
+    .replace(/^\s{0,3}(#{1,6}\s+|>\s?|[-*+]\s+(\[[ xX]\]\s+)?|\d+[.)]\s+(\[[ xX]\]\s+)?)/, "")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[*_~`]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }

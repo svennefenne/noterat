@@ -27,7 +27,7 @@ brings things up to date.
 
 | Part | Choice | Why |
 |---|---|---|
-| App | React + TypeScript (Vite), Tiptap for writing | One app for web, Android and desktop; Tiptap is already used in Hooden and has Yjs collaboration built in |
+| App | React + TypeScript (Vite), CodeMirror 6 for writing Markdown | One app for web, Android and desktop; notes are kept as the Markdown they're written in, and CodeMirror binds to Yjs (decision 6) |
 | Android | Capacitor: the built app inside an Android app | Opens offline (unlike a web view of the server), with native plugins for the scanner and push |
 | Desktop | Electron shell, as in Hooden | Linux desktop app with tray and notifications |
 | Sync | Yjs (CRDT) | Changes from several devices merge by themselves, also after being offline |
@@ -85,11 +85,15 @@ then mostly a document type and its screens.
   - No comments or reactions at first.
   - A compact phone view for lists that start with a checkbox (shopping, checklists): one tap ticks,
     ticked rows sink.
-- **Notes**: Markdown, editing and preview, tags, folders, pinned notes; edited together live.
+- **Notes**: Markdown, written as Markdown (CodeMirror, with the marks dimmed and a toolbar on the
+  phone) and read as it looks; tags (shared with the note), folders and pinning (each person's own);
+  edited together live, with the others' cursors (decision 6).
 - **Journal**: entries per day with text, voice clips and photos; a timeline and a calendar view;
   voice clips can be transcribed; the journal can be locked with the fingerprint.
-- **Voice memos**: one tap to record; transcription is a job for the worker (queued while offline);
-  "Move to…" turns a memo into a note, a journal entry, list rows (one per line) or a calendar event.
+- **Voice memos**: one tap to record (or add an audio file); the recording uploads in pieces when
+  there's a connection, and transcription is a job for the worker, which asks the server for work
+  (decision 6); "Move to…" turns a memo into a new note, the end of a note or list rows (one per line),
+  and later a journal entry or a calendar event.
 - **Finances**: a monthly budget with categories (envelope or zero-based), transactions, recurring
   items, savings goals, reports, CSV import from the bank, a shared household budget. Amounts are
   integers in öre. Receipts from the scanner can become transactions.
@@ -108,8 +112,8 @@ then mostly a document type and its screens.
 | Phase | What | Done when |
 |---|---|---|
 | 0 | Monorepo, CI, Docker image, Unraid template, Android shell, accounts and log-in, this plan | `docker compose up` starts a server the app can log in to ✅ |
-| 1 | Sync core (Yjs + Hocuspocus + local copy), the common frame, **Lists**, sharing by link and in-app notification, running on Unraid | A shared shopping list works in flight mode on both phones and merges right afterwards ✅ in tests and in two browsers; on the phones and Unraid next |
-| 2 | Notes, voice memos, the worker (speech to text on the GPU) | A recorded memo becomes text that can be moved to a note |
+| 1 | Sync core (Yjs + Hocuspocus + local copy), the common frame, **Lists**, sharing by link and in-app notification, running on Unraid | A shared shopping list works in flight mode on both phones and merges right afterwards ✅ in tests and in two browsers; running on Unraid |
+| 2 | Notes, voice memos, the worker (speech to text on the GPU) | A recorded memo becomes text that can be moved to a note ✅ in tests and in a browser, with the worker on a GPU; on the phones and Unraid next |
 | 3 | Journal, search across everything, app lock | Search finds text in every section, offline too |
 | 4 | Scanner and OCR | A photographed receipt is cropped by itself and becomes searchable text |
 | 5 | Recipes | A recipe imported from a URL puts its ingredients on the shopping list and exports as a PDF |

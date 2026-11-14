@@ -73,6 +73,9 @@ export function deleteObject(db: DB, objectId: string) {
     db.prepare("update objects set deleted_at = ?, updated_at = ?, state = null where id = ?").run(t, t, objectId);
     db.prepare("delete from members where object_id = ?").run(objectId);
     db.prepare("delete from invites where object_id = ?").run(objectId);
+    // (its files stay while something else refers to them; its jobs stop)
+    db.prepare("delete from file_refs where object_id = ?").run(objectId);
+    db.prepare("update jobs set status = 'cancelled', updated_at = ? where object_id = ? and status in ('queued', 'working')").run(t, objectId);
   })();
 }
 

@@ -185,6 +185,6 @@ describe("document names", () => {
     const id = newObjectId();
     expect(parseDocName(`list/${id}`)).toEqual({ kind: "object", type: "list", id });
     expect(parseDocName("home/7")).toEqual({ kind: "home", userId: 7 });
-    for (const bad of ["home/07", "home/0", `note/${id}`, `list/${id}/x`, "list/nope"]) expect(parseDocName(bad)).toBeNull();
+    for (const bad of ["home/07", "home/0", `recipe/${id}`, `list/${id}/x`, "list/nope"]) expect(parseDocName(bad)).toBeNull();
   });
 });

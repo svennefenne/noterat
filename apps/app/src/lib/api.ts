@@ -14,6 +14,7 @@ import type {
   ShareRole,
   ShareState,
   SignupReply,
+  TranscriberInfo,
   User,
 } from "@noterat/core";
 
@@ -56,7 +57,7 @@ async function call<T>(base: string, path: string, { method = "GET", body, token
   } catch {
     throw new ApiError("network", 0);
   }
-  if (res.status === 204) return undefined as T;
+  if (res.status === 204 || res.status === 202) return undefined as T;
   const data: unknown = await res.json().catch(() => null);
   if (!res.ok) throw new ApiError((data as ApiErrorBody | null)?.error ?? "server_error", res.status);
   return data as T;
@@ -88,6 +89,8 @@ export function signedInApi(base: string, token: string) {
     acceptLink: (link: string) => at<AcceptReply>(`/api/links/${encodeURIComponent(link)}/accept`, { method: "POST" }),
     acceptInvitation: (id: string) => at<AcceptReply>(`/api/invitations/${id}/accept`, { method: "POST" }),
     declineInvitation: (id: string) => at<void>(`/api/invitations/${id}/decline`, { method: "POST" }),
+    transcribe: (id: string) => at<void>(`/api/objects/${id}/transcribe`, { method: "POST" }),
+    transcriber: () => at<TranscriberInfo>("/api/transcriber"),
   };
 }
 export type SignedInApi = ReturnType<typeof signedInApi>;

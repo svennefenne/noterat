@@ -61,7 +61,14 @@ export type ErrorCode =
   | "name_missing"
   | "name_long"
   | "password_short"
-  | "password_long";
+  | "password_long"
+  // files and transcription (phase 2)
+  | "upload_offset"
+  | "file_too_large"
+  | "hash_mismatch"
+  | "not_uploaded"
+  | "wrong_type"
+  | "no_transcriber";
 
 export interface ApiErrorBody {
   error: ErrorCode;
@@ -151,4 +158,34 @@ export interface AcceptReply {
 /** POST /api/links/:token/signup: a new account made from a share link, which it then accepts. */
 export interface SignupReply extends SessionReply {
   accepted: AcceptReply;
+}
+
+// ───────────── transcription (phase 2) ─────────────
+
+/**
+ * GET /api/transcriber: whether this server turns speech into text. "none": no worker is set up
+ * (WORKER_TOKEN isn't set); "offline": one is, but it hasn't asked for work in the last minute.
+ */
+export interface TranscriberInfo {
+  state: "none" | "offline" | "online";
+  /** jobs waiting or being done */
+  queued: number;
+}
+
+/** POST /api/worker/next: a job for the worker (decision 6). */
+export interface WorkerJob {
+  id: string;
+  kind: "transcribe";
+  file: { hash: string; type: string; size: number };
+  /** "sv", or null to let the model tell */
+  language: string | null;
+}
+
+/** POST /api/worker/jobs/:id/done */
+export interface WorkerDone {
+  text: string;
+  language?: string;
+  duration?: number;
+  model?: string;
+  segments?: { start: number; end: number; text: string }[];
 }

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import type * as Y from "yjs";
-import { homeInvitations, homeItems, type HomeItem, type Invitation, type User } from "@noterat/core";
+import { homePrefs, homeInvitations, homeItems, type HomeItem, type Invitation, type ItemPrefs, type User } from "@noterat/core";
+import type { FilesState } from "./files";
 import { signedInApi, type SignedInApi } from "./api";
 import type { Sync, SyncState } from "./sync";
 
@@ -59,4 +60,38 @@ export function useHomeItems(): [string, HomeItem][] {
 export function useInvitations(): Invitation[] {
   const { sync } = useSession();
   return useDocValue(sync.home, readInvitations);
+}
+
+const readPrefs = (doc: Y.Doc) => Object.fromEntries(homePrefs(doc).entries()) as Record<string, ItemPrefs>;
+
+/** How this person keeps their things (pinned, folder), by id. */
+export function useHomePrefs(): Record<string, ItemPrefs> {
+  const { sync } = useSession();
+  return useDocValue(sync.home, readPrefs);
+}
+
+/** Uploads waiting or under way, by file hash. */
+export function useUploads(): FilesState {
+  const { sync } = useSession();
+  return useSyncExternalStore(sync.files.subscribe, sync.files.getState);
+}
+
+/**
+ * A value read from each of some documents (every note, for the notes page), read again whenever one of
+ * them changes. read should be a function that doesn't change between renders.
+ */
+export function useDocsValues<T>(docs: Y.Doc[], read: (doc: Y.Doc) => T): T[] {
+  const [state, setState] = useState(() => ({ docs, values: docs.map(read) }));
+  // (other documents than last time, say a memo just made: read them now, not one render late)
+  let values = state.values;
+  if (state.docs !== docs) {
+    values = docs.map(read);
+    setState({ docs, values });
+  }
+  useEffect(() => {
+    const again = () => setState({ docs, values: docs.map(read) });
+    for (const d of docs) d.on("update", again);
+    return () => docs.forEach((d) => d.off("update", again));
+  }, [docs, read]);
+  return values;
 }
