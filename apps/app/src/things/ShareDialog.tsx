@@ -7,9 +7,9 @@ import { useSession } from "../lib/sync-react";
 import { Problem } from "../ui";
 
 /**
- * Who has a list, and (the owner) sharing it: inviting someone on the server, who sees it at once in
- * their app, or making a link to send any way at all. Needs a connection; everything else in a list
- * doesn't.
+ * Who has a thing (a list, a note, a memo), and (the owner) sharing it: inviting someone on the
+ * server, who sees it at once in their app, or making a link to send any way at all. Needs a
+ * connection; everything else in a thing doesn't.
  */
 export function ShareDialog({ id }: { id: string }) {
   const { t, errorText } = useI18n();

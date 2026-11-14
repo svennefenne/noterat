@@ -4,7 +4,9 @@ import { cors } from "hono/cors";
 import { checkDisplayName, checkPassword, checkUsername, type ApiErrorBody, type ServerInfo, type SessionReply } from "@noterat/core";
 import { createSession, dummyHash, endSession, hashPassword, LoginThrottle, verifyPassword } from "./auth";
 import type { DB } from "./db";
+import { fileRoutes, fileStore } from "./files";
 import { Fail, readBody, signedIn, text, type Env } from "./http";
+import { createJobs } from "./jobs";
 import { shareRoutes } from "./sharing";
 import type { Sync } from "./sync";
 import { createUser, toUser, userByUsername, userCount } from "./users";
@@ -22,6 +24,14 @@ export interface AppOptions {
   trustedIpHeader: string;
   /** the address people use (share links), or "" for the address each request came to */
   publicUrl: string;
+  /** where files are kept (DATA_DIR) */
+  dataDir: string;
+  /** the speech-to-text worker's token ("" = none) and the language it transcribes in */
+  workerToken?: string;
+  transcribeLanguage?: string;
+  /** (tests: how long the worker's request for work waits, and how long a quiet worker keeps a job) */
+  workerWait?: number;
+  workerLease?: number;
 }
 
 /**
@@ -119,11 +129,16 @@ export function createApp(o: AppOptions) {
 
   shareRoutes(app, { db, sync: o.sync, publicUrl: o.publicUrl });
 
+  const store = fileStore(o.dataDir);
+  const jobs = createJobs({ db, sync: o.sync, store, workerToken: o.workerToken ?? "", language: o.transcribeLanguage ?? "sv", wait: o.workerWait, lease: o.workerLease });
+  fileRoutes(app, { db, store, onUploaded: jobs.onUploaded });
+  jobs.routes(app);
+
   app.all("/api/*", () => {
     throw new Fail("not_found", 404);
   });
 
   if (o.webDir) app.get("*", webFiles(o.webDir));
 
-  return app;
+  return Object.assign(app, { jobs });
 }

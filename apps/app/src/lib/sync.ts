@@ -1,7 +1,9 @@
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from "@hocuspocus/provider";
 import { IndexeddbPersistence } from "y-indexeddb";
 import * as Y from "yjs";
-import { homeDocName, homeItems, newObjectId, objectDocName, parseDocName, type MemberRole, type ObjectType } from "@noterat/core";
+import type { Awareness } from "y-protocols/awareness";
+import { homeDocName, homeItems, newObjectId, objectDocName, parseDocName, readMemo, type MemberRole, type ObjectType } from "@noterat/core";
+import { Files, type Upload } from "./files";
 
 /**
  * The device's copy of everything, kept in sync with the server.
@@ -14,6 +16,8 @@ import { homeDocName, homeItems, newObjectId, objectDocName, parseDocName, type 
  * of it is on the device when the connection goes. What leaves it (deleted, no longer shared) is let go,
  * from the device too. A document the server refuses tells why: "unauthorized" (the session ended),
  * "forbidden" or "deleted" (it's not theirs any more).
+ *
+ * Files (recordings) go the same way beside them (files.ts): kept on the device, sent when online.
  */
 
 export type Connection = "online" | "connecting" | "offline";
@@ -43,6 +47,7 @@ function socketUrl(base: string): string {
 export class Sync {
   readonly home: Y.Doc;
   readonly userId: number;
+  readonly files: Files;
   private readonly socket: HocuspocusProviderWebsocket;
   private readonly open = new Map<string, Open>();
   private readonly listeners = new Set<() => void>();
@@ -59,8 +64,12 @@ export class Sync {
       // try again soon, then every half minute at most
       delay: 1000,
       maxDelay: 30_000,
-      onStatus: ({ status }) => this.update({ connection: status === "connected" ? "online" : status === "connecting" ? "connecting" : "offline" }),
+      onStatus: ({ status }) => {
+        this.update({ connection: status === "connected" ? "online" : status === "connecting" ? "connecting" : "offline" });
+        if (status === "connected") this.files.kick();
+      },
     });
+    this.files = new Files({ base: o.base, token: o.token, prefix: this.prefix, onUploaded: (u) => this.uploaded(u) });
     const home = this.openDoc(homeDocName(o.userId));
     this.home = home.doc;
     void home.local.whenSynced.then(() => {
@@ -93,6 +102,21 @@ export class Sync {
     return this.openDoc(name).doc;
   }
 
+  private readonly docLists = new Map<string, Y.Doc[]>();
+
+  /** Some things' documents, as one array that stays the same as long as the things do (for React). */
+  docsOf(type: ObjectType, ids: string[]): Y.Doc[] {
+    const key = `${type}:${ids.join(",")}`;
+    let docs = this.docLists.get(key);
+    if (!docs) {
+      docs = ids.map((id) => this.doc(objectDocName(type, id)));
+      this.docLists.set(key, docs);
+      // (only the last few are worth keeping)
+      if (this.docLists.size > 12) this.docLists.delete(this.docLists.keys().next().value!);
+    }
+    return docs;
+  }
+
   /** Whether a document has been read from the device yet (before that it looks empty). */
   isLoaded(name: string): boolean {
     return this.open.get(name)?.loaded ?? false;
@@ -100,6 +124,11 @@ export class Sync {
 
   whenLoaded(name: string): Promise<unknown> {
     return this.openDoc(name).local.whenSynced;
+  }
+
+  /** Who's where in a document (others' cursors in a note), when it's open. */
+  awareness(name: string): Awareness | null {
+    return this.open.get(name)?.provider.awareness ?? null;
   }
 
   /** This person's role on a thing (from their home document; one they made is theirs). */
@@ -174,7 +203,20 @@ export class Sync {
 
   private wake = () => {
     if (this.state.connection !== "online") void this.socket.connect();
+    this.files.kick();
   };
+
+  /**
+   * A recording is on the server. The server queues a memo that wants transcribing by itself; if it
+   * still says "wanted" a little later (its change hadn't reached the server yet), ask.
+   */
+  private uploaded(u: Upload) {
+    setTimeout(() => {
+      const entry = [...this.open.entries()].find(([name]) => name.endsWith(`/${u.objectId}`))?.[1];
+      if (!entry || this.destroyed || readMemo(entry.doc).transcription?.status !== "wanted") return;
+      void fetch(`${this.o.base}/api/objects/${u.objectId}/transcribe`, { method: "POST", headers: { Authorization: `Bearer ${this.o.token}` } }).catch(() => {});
+    }, 3000);
+  }
 
   /** Logging out: the connection closed, and (forget) everything this person had on the device removed. */
   async destroy(o: { forget: boolean }) {
@@ -189,5 +231,6 @@ export class Sync {
     this.open.clear();
     this.socket.destroy();
     this.listeners.clear();
+    await this.files.destroy(o);
   }
 }

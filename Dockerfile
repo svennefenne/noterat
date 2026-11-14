@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Noterat's core: one container with the server, its SQLite database and the app's web build. Everything
-# it keeps lives in /data. (Speech to text and OCR come as a second, optional container in phase 2.)
+# it keeps lives in /data. (Speech to text runs in a second, optional container: apps/worker.)
 #
 # The build uses the full node image (python3, make and g++, in case better-sqlite3 has to compile);
 # the runtime uses -slim. Both are Debian bookworm / glibc, so the native module moves across.

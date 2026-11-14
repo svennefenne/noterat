@@ -94,6 +94,25 @@ export function createSync(db: DB, o: { debounce?: number; maxDebounce?: number 
     }
   }
 
+  /**
+   * Read a thing's document on the server, or change it (a transcript, a job's progress): a change shows
+   * at once on every device that has it open, and is stored like anyone's.
+   */
+  async function withObject<T>(type: ObjectType, id: string, use: (doc: Y.Doc) => T, change: boolean): Promise<T> {
+    const conn = await hocuspocus.openDirectConnection(objectDocName(type, id), { server: true });
+    try {
+      let out: T | undefined;
+      if (change)
+        await conn.transact((d) => {
+          out = use(d);
+        });
+      else out = use(conn.document!);
+      return out as T;
+    } finally {
+      await conn.disconnect();
+    }
+  }
+
   const openConnections = (type: ObjectType, id: string) => [...(hocuspocus.documents.get(objectDocName(type, id))?.connections.keys() ?? [])];
   // (closes the one document on that connection: the device's others go on; the app gets the reason)
   const closeConnection = (connection: Connection<SyncContext>, reason: Refusal) =>
@@ -136,6 +155,9 @@ export function createSync(db: DB, o: { debounce?: number; maxDebounce?: number 
       const open = hocuspocus.documents.get(objectDocName(obj.type, obj.id));
       return open ? docTitle(open) : obj.title;
     },
+
+    readObject: <T>(type: ObjectType, id: string, read: (doc: Y.Doc) => T) => withObject(type, id, read, false),
+    changeObject: <T>(type: ObjectType, id: string, change: (doc: Y.Doc) => T) => withObject(type, id, change, true),
 
     /** Someone has a thing now (or another role on it): it's in their home document, with that role. */
     toHome: (userId: number, objectId: string, type: ObjectType, role: MemberRole) =>

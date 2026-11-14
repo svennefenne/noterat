@@ -3,6 +3,7 @@
 #   cp .env.example .env                    # then edit .env
 #   docker compose up -d                    # Noterat on http://<server>:3300
 #   docker compose --profile https up -d    # + Caddy: automatic HTTPS for your domain
+#   docker compose --profile gpu up -d      # + speech to text for voice memos, on an Nvidia GPU
 #
 # Phones outside your home network need HTTPS (and share links need an address that works
 # everywhere): use the https profile, or your own reverse proxy (SWAG, Nginx Proxy Manager…).
@@ -24,9 +25,36 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:-}
       # behind a proxy that passes on the visitor's address in a header (slows down password guessing per visitor)
       TRUSTED_IP_HEADER: ${TRUSTED_IP_HEADER:-}
+      # the speech-to-text worker's key (a long random string, the same for both); without it, transcription is off
+      WORKER_TOKEN: ${WORKER_TOKEN:-}
     volumes:
       # the database and everything people add: back this folder up
       - ${NOTERAT_DATA:-./data}:/data
+
+  # ── Speech to text: KB-Whisper on an Nvidia GPU (needs the NVIDIA Container Toolkit, and WORKER_TOKEN in .env) ──
+  worker:
+    profiles: ["gpu"]
+    image: ghcr.io/svennefenne/noterat-worker:latest
+    build: apps/worker
+    container_name: noterat-worker
+    restart: unless-stopped
+    depends_on: [noterat]
+    environment:
+      TZ: ${TZ:-Europe/Stockholm}
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      NOTERAT_URL: http://noterat:3000
+      WORKER_TOKEN: ${WORKER_TOKEN:-}
+    volumes:
+      # the model, downloaded on the first start (about 3 GB; it can be downloaded again)
+      - worker-models:/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
   # ── HTTPS with Caddy: point your domain's DNS at your home IP and forward ports 80 and 443 ──
   caddy:
@@ -49,3 +77,4 @@ services:
 volumes:
   caddy-data:
   caddy-config:
+  worker-models:

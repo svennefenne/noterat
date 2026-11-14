@@ -399,6 +399,23 @@ export function addRow(doc: Y.Doc, o: { after?: string; cells?: Record<string, u
   return id;
 }
 
+/**
+ * Lines of text as new rows at the end (a voice memo moved to a list): each in the first text column.
+ * Returns how many were added (none if the list has no text column; as many as there's room for).
+ */
+export function addTextRows(doc: Y.Doc, lines: string[], by: number): number {
+  const col = readList(doc).columns.find((c) => c.type === "text");
+  if (!col) return 0;
+  let n = 0;
+  doc.transact(() => {
+    for (const line of lines) {
+      if (!addRow(doc, { cells: { [col.id]: line }, by })) break;
+      n++;
+    }
+  });
+  return n;
+}
+
 export function removeRow(doc: Y.Doc, rowId: string) {
   rowsMap(doc).delete(rowId);
 }

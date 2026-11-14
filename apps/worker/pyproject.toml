@@ -1,0 +1,32 @@
+[project]
+name = "noterat-worker"
+version = "0.1.0"
+description = "Noterat's speech-to-text worker: KB-Whisper through faster-whisper, asking a Noterat server for recordings."
+requires-python = ">=3.12"
+dependencies = [
+  "faster-whisper==1.2.1",
+  # faster-whisper 1.2.1 opens files with av.open(metadata_errors=...), which PyAV 19 no longer takes
+  "av==18.1.0",
+  # 4.9 runs Whisper's convolutions with cuBLAS, so the GPU needs cuBLAS 12 and not cuDNN
+  "ctranslate2==4.9.0",
+]
+
+[project.optional-dependencies]
+# CUDA 12's cuBLAS from pip, for a GPU on a machine (or in an image) without the CUDA toolkit;
+# LD_LIBRARY_PATH has to point at nvidia/cublas/lib (see Dockerfile).
+cuda = ["nvidia-cublas-cu12==12.9.*"]
+test = ["pytest>=8"]
+
+[project.scripts]
+noterat-worker = "noterat_worker.__main__:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["noterat_worker"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

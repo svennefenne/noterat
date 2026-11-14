@@ -76,6 +76,44 @@ const MIGRATIONS: string[] = [
   );
   create index invites_object on invites(object_id);
   `,
+  /* 3: files, and work for the worker (phase 2) */ `
+  -- a file people added (a recording…), named by the SHA-256 of its bytes: DATA_DIR/files/ab/abcd…
+  -- (pieces of one still uploading wait in DATA_DIR/uploads/)
+  create table files (
+    hash text primary key,
+    size integer not null,
+    type text not null,
+    uploaded_by integer references users(id) on delete set null,
+    created_at integer not null
+  );
+
+  -- the things that refer to a file: anyone who has one of them may read it
+  create table file_refs (
+    object_id text not null references objects(id) on delete cascade,
+    hash text not null references files(hash) on delete cascade,
+    added_at integer not null,
+    primary key (object_id, hash)
+  );
+  create index file_refs_hash on file_refs(hash);
+
+  -- jobs for the worker (speech to text): a working job is its worker's until lease_until
+  create table jobs (
+    id text primary key,
+    kind text not null,
+    object_id text not null references objects(id) on delete cascade,
+    hash text not null,
+    language text,
+    status text not null check (status in ('queued', 'working', 'done', 'failed', 'cancelled')),
+    tries integer not null default 0,
+    worker text,
+    lease_until integer,
+    error text,
+    created_at integer not null,
+    updated_at integer not null
+  );
+  create index jobs_status on jobs(status, created_at);
+  create index jobs_object on jobs(object_id);
+  `,
 ];
 
 /** Open (or make) the database at file (":memory:" for tests), brought up to the latest schema. */

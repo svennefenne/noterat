@@ -4,6 +4,7 @@ import { checkDisplayName, checkPassword, checkUsername, PASSWORD_MIN, type Link
 import { api, ApiError } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { useSession } from "../lib/sync-react";
+import { pathOf } from "../lib/things";
 import { Field, Page, Problem, Submit } from "../ui";
 
 /**
@@ -36,7 +37,7 @@ function About({ info, missing }: { info: LinkInfo | null; missing: unknown }) {
   return <p className="intro">{t(info.role === "editor" ? "link.editor" : "link.viewer")}</p>;
 }
 
-const heading = (t: ReturnType<typeof useI18n>["t"], info: LinkInfo | null) => (info ? t("link.title", { name: info.from, title: info.title || t("lists.untitled") }) : "Noterat");
+const heading = (t: ReturnType<typeof useI18n>["t"], info: LinkInfo | null) => (info ? t("link.title", { name: info.from, title: info.title || t(`untitled.${info.type}`) }) : "Noterat");
 
 /** Logged in: accept the link. */
 export function LinkScreen({ base, link }: { base: string; link: string }) {
@@ -51,7 +52,7 @@ export function LinkScreen({ base, link }: { base: string; link: string }) {
     setBusy(true);
     try {
       const r = await session.api.acceptLink(link);
-      navigate(`/lists/${r.objectId}`, { replace: true });
+      navigate(pathOf(r.type, r.objectId), { replace: true });
     } catch (err) {
       setProblem(errorText(err));
       setBusy(false);
@@ -104,7 +105,7 @@ export function LinkGate({ base, link, onSignedIn }: { base: string; link: strin
       if (mode === "signup") {
         const r = await api.signupByLink(base, link, { username: username.trim(), displayName: displayName.trim(), password });
         onSignedIn(r);
-        navigate(`/lists/${r.accepted.objectId}`, { replace: true });
+        navigate(pathOf(r.accepted.type, r.accepted.objectId), { replace: true });
       } else onSignedIn(await api.login(base, { username: username.trim(), password }));
     } catch (err) {
       setProblem(errorText(err));

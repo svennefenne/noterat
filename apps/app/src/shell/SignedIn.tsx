@@ -6,6 +6,10 @@ import { Sync } from "../lib/sync";
 import { SessionProvider } from "../lib/sync-react";
 import { ListScreen } from "../lists/ListScreen";
 import { ListsScreen } from "../lists/ListsScreen";
+import { MemoScreen } from "../memos/MemoScreen";
+import { MemosScreen } from "../memos/MemosScreen";
+import { NoteScreen } from "../notes/NoteScreen";
+import { NotesScreen } from "../notes/NotesScreen";
 import { LinkScreen } from "../screens/LinkScreen";
 import { Shell } from "./Shell";
 
@@ -40,12 +44,23 @@ export function SignedIn({ base, token, user, onLogout, onExpired }: { base: str
       <Shell onLogout={() => void logout()}>
         <Switch>
           <Route path="/">
+            <Redirect to="/lists" replace />
+          </Route>
+          <Route path="/lists">
             <ListsScreen />
           </Route>
           <Route path="/lists/:id">{(p) => <ListScreen key={p.id} id={p.id} />}</Route>
+          <Route path="/notes">
+            <NotesScreen />
+          </Route>
+          <Route path="/notes/:id">{(p) => <NoteScreen key={p.id} id={p.id} />}</Route>
+          <Route path="/memos">
+            <MemosScreen />
+          </Route>
+          <Route path="/memos/:id">{(p) => <MemoScreen key={p.id} id={p.id} />}</Route>
           <Route path="/i/:token">{(p) => <LinkScreen base={base} link={p.token} />}</Route>
           <Route>
-            <Redirect to="/" />
+            <Redirect to="/lists" />
           </Route>
         </Switch>
       </Shell>

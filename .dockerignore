@@ -9,3 +9,4 @@ data
 .env*
 docs
 apps/app/android
+apps/worker

@@ -1,12 +1,16 @@
 import { useState, type ReactNode } from "react";
-import { Bell, Cloud, CloudOff, HardDrive, Loader, UserRound } from "lucide-react";
+import { Bell, Cloud, CloudOff, HardDrive, ListChecks, Loader, Mic, NotebookPen, UserRound } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { isApp } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { useInvitations, useSession, useSyncState } from "../lib/sync-react";
+import { pathOf, SECTION } from "../lib/things";
 import { Menu, MenuItem, Problem } from "../ui";
 
-/** The signed-in app's frame: the name (home), whether it's synced, invitations, and the account menu. */
+/**
+ * The signed-in app's frame: the name (home), the sections (along the top on a wide screen, at the
+ * bottom on a phone), whether it's synced, invitations, and the account menu.
+ */
 export function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => void }) {
   const { t, lang, setLang } = useI18n();
   const { user, base } = useSession();
@@ -17,6 +21,7 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
           <img src="/icon.svg" alt="" width={28} height={28} />
           <span>Noterat</span>
         </Link>
+        <Sections />
         <div className="topbar-actions">
           <SyncBadge />
           <Invitations />
@@ -30,6 +35,30 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
       </header>
       <main className="content">{children}</main>
     </div>
+  );
+}
+
+const SECTIONS = [
+  { type: "list", Icon: ListChecks },
+  { type: "note", Icon: NotebookPen },
+  { type: "memo", Icon: Mic },
+] as const;
+
+function Sections() {
+  const { t } = useI18n();
+  const [location] = useLocation();
+  return (
+    <nav className="sections" aria-label={t("section.nav")}>
+      {SECTIONS.map(({ type, Icon }) => {
+        const here = location === SECTION[type] || location.startsWith(`${SECTION[type]}/`);
+        return (
+          <Link key={type} href={SECTION[type]} className="section-link" aria-current={here ? "page" : undefined}>
+            <Icon aria-hidden size={20} />
+            <span>{t(`section.${type}`)}</span>
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -66,7 +95,7 @@ function Invitations() {
     try {
       if (accept) {
         const r = await api.acceptInvitation(id);
-        navigate(`/lists/${r.objectId}`);
+        navigate(pathOf(r.type, r.objectId));
       } else await api.declineInvitation(id);
     } catch (err) {
       setProblem(errorText(err));
@@ -90,7 +119,7 @@ function Invitations() {
       {invitations.length === 0 && <div className="menu-text muted">{t("invitations.none")}</div>}
       {invitations.map((i) => (
         <div key={i.id} className="invitation">
-          <p>{t("invitations.text", { name: i.from.displayName, title: i.title || t("lists.untitled") })}</p>
+          <p>{t("invitations.text", { name: i.from.displayName, title: i.title || t(`untitled.${i.type}`) })}</p>
           <p className="muted small-text">{t(i.role === "editor" ? "invitations.editor" : "invitations.viewer")}</p>
           <div className="invitation-actions">
             <button type="button" role="menuitem" className="primary small" disabled={busy} onClick={() => void answer(i.id, true)}>

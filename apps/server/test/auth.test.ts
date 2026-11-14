@@ -1,15 +1,18 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import type { ServerInfo, SessionReply, User } from "@noterat/core";
 import { createApp } from "../src/app";
 import { openDb } from "../src/db";
 import { createSync } from "../src/sync";
 
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "noterat-test-"));
+afterAll(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+
 function server(webDir: string | null = null, trustedIpHeader = "") {
   const db = openDb(":memory:");
-  return createApp({ db, sync: createSync(db), version: "test", webDir, trustedIpHeader, publicUrl: "" });
+  return createApp({ db, sync: createSync(db), version: "test", webDir, trustedIpHeader, publicUrl: "", dataDir });
 }
 type App = ReturnType<typeof server>;
 

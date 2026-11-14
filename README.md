@@ -5,10 +5,13 @@ scanning app. Self-hosted in a Docker container (made for Unraid), with an Andro
 of everything on the phone: it works offline and catches up when it's back online. Nothing is shared
 until you share it, and what you share is live for everyone in it.
 
-**Status: phase 1 of 8: Lists.** Lists of your own making (as in Hooden: typed columns, templates,
-who fills in what), kept on the device and synced live, shared by a link or with someone on the same
-server, and merged right after being changed offline in several places. Next are notes, voice memos and
-the rest, phase by phase; see [the plan](docs/PLAN.md) and [the decisions behind it](docs/decisions/).
+**Status: phase 2 of 8: Lists, notes and voice memos.** Lists of your own making (as in Hooden: typed
+columns, templates, who fills in what); notes in Markdown, written together live, with tags, folders
+and pinned notes; and voice memos, recorded in the app and turned into text by KB-Whisper on the
+server's GPU, ready to move to a note or a list. Everything is kept on the device and synced live,
+shared by a link or with someone on the same server, and merged right after being changed offline in
+several places. Next are the journal and search, then the rest, phase by phase; see
+[the plan](docs/PLAN.md) and [the decisions behind it](docs/decisions/).
 
 ## Run it
 
@@ -27,11 +30,17 @@ anywhere and share links work. It has to let WebSockets through: the live sync i
 Nginx Proxy Manager, turn on "Websockets Support"; SWAG's and Caddy's defaults do it). Open the
 address: the first account you make is the admin.
 
+**Speech to text** (optional, an Nvidia GPU): give Noterat a `WORKER_TOKEN` (a long random string),
+and add the worker from [`unraid/noterat-worker.xml`](unraid/noterat-worker.xml) with the same token and
+Noterat's address. It needs Unraid's Nvidia Driver plugin; see [`apps/worker`](apps/worker/README.md).
+Without it, voice memos are recorded and played, but not turned into text.
+
 ### With Docker Compose
 
 ```bash
 cp .env.example .env    # then edit .env
-docker compose up -d    # http://<server>:3300; add --profile https for Caddy with your own domain
+docker compose up -d    # http://<server>:3300; add --profile https for Caddy with your own domain,
+                        # --profile gpu for speech to text (set WORKER_TOKEN in .env)
 ```
 
 ### The Android app
@@ -53,7 +62,7 @@ npm run dev        # the server on :3000 and the app on http://localhost:5173
 | Command | What it does |
 |---|---|
 | `npm run dev` | Server (restarts on changes) and app (Vite), side by side |
-| `npm test` | The tests (Vitest): the lists' model, and the server for real, with devices syncing over its WebSocket, offline and back |
+| `npm test` | The tests (Vitest): the models of lists, notes and memos, and the server for real, with devices syncing over its WebSocket (offline and back), uploads in pieces, and a worker's jobs |
 | `npm run typecheck` | TypeScript, every package |
 | `npm run lint` | ESLint, the whole repository |
 | `npm run build` | The server bundle (`apps/server/dist`) and the app (`apps/app/dist`) |
@@ -62,12 +71,14 @@ npm run dev        # the server on :3000 and the app on http://localhost:5173
 
 ```
 apps/
-  server/     Node + Hono + SQLite: the API, sharing, and the live sync (Hocuspocus at /sync)
+  server/     Node + Hono + SQLite: the API, sharing, files, the worker's jobs, and the live sync
+              (Hocuspocus at /sync)
   app/        React + Vite: the app for the web, and inside Capacitor (android/) for Android;
-              everything kept in IndexedDB on the device (lib/sync.ts)
+              everything kept in IndexedDB on the device (lib/sync.ts, lib/files.ts)
+  worker/     Python: speech to text with faster-whisper and KB-Whisper, on the GPU (optional)
 packages/
   core/       what the server and the app share: the API's shapes and checks, document names,
-              the home document, and the lists' model (lists.ts)
+              the home document, files, and the models of lists, notes and memos
 docker/       the image's entrypoint (runs as PUID:PGID)
 unraid/       the Unraid template
 docs/         the plan and the decisions

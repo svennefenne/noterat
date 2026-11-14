@@ -9,7 +9,7 @@ import { Dialog, Menu, MenuItem, Problem, useStored } from "../ui";
 import { ColumnEditor } from "./ColumnEditor";
 import { ListChecklist } from "./ListChecklist";
 import { ListTable } from "./ListTable";
-import { ShareDialog } from "./ShareDialog";
+import { ShareDialog } from "../things/ShareDialog";
 import { useMembers } from "./useMembers";
 
 /** A list's page: only for a list this person has (one in their home document). */
@@ -21,7 +21,7 @@ export function ListScreen({ id }: { id: string }) {
   if (!item || item.type !== "list")
     return (
       <div className="screen">
-        <Link href="/" className="back">
+        <Link href="/lists" className="back">
           <ArrowLeft aria-hidden size={18} /> {t("list.back")}
         </Link>
         <p className="notice">{t("list.notFound")}</p>
@@ -58,7 +58,7 @@ function ListPage({ id, role }: { id: string; role: MemberRole }) {
       if (!(err instanceof ApiError && err.code === "not_synced")) return setProblem(err instanceof ApiError && err.code === "network" ? t("list.needsOnline") : errorText(err));
     }
     sync.drop(id);
-    navigate("/");
+    navigate("/lists");
   }
 
   if (!sync.isLoaded(name)) return <p className="muted">{t("lists.loading")}</p>;
@@ -66,7 +66,7 @@ function ListPage({ id, role }: { id: string; role: MemberRole }) {
   return (
     <div className="screen list-screen">
       <div className="list-head">
-        <Link href="/" className="back">
+        <Link href="/lists" className="back">
           <ArrowLeft aria-hidden size={18} /> {t("list.back")}
         </Link>
         <div className="list-title-row">
