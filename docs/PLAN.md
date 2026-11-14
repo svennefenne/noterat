@@ -48,7 +48,8 @@ brings things up to date.
 - **Live**: everyone with the thing open gets each change over the WebSocket at once.
 - Files sync separately and are referred to by hash, so a document can point at a photo that hasn't
   finished uploading.
-- Search runs on the device (a local index), so it works offline.
+- Search runs on the device (a full-text index over the documents that are there), so it works
+  offline; it ignores case and accents and finds words from their start (decision 7).
 
 ## Sharing
 
@@ -88,8 +89,9 @@ then mostly a document type and its screens.
 - **Notes**: Markdown, written as Markdown (CodeMirror, with the marks dimmed and a toolbar on the
   phone) and read as it looks; tags (shared with the note), folders and pinning (each person's own);
   edited together live, with the others' cursors (decision 6).
-- **Journal**: entries per day with text, voice clips and photos; a timeline and a calendar view;
-  voice clips can be transcribed; the journal can be locked with the fingerprint.
+- **Journal**: an entry per document, about a day, with text (Markdown), voice clips and photos (made
+  smaller on the device); a timeline by month and a calendar; a clip's text goes at the end of the entry;
+  the journal (or the whole app) can be locked with the fingerprint, or a PIN on the web (decision 7).
 - **Voice memos**: one tap to record (or add an audio file); the recording uploads in pieces when
   there's a connection, and transcription is a job for the worker, which asks the server for work
   (decision 6); "Move to…" turns a memo into a new note, the end of a note or list rows (one per line),
@@ -113,8 +115,8 @@ then mostly a document type and its screens.
 |---|---|---|
 | 0 | Monorepo, CI, Docker image, Unraid template, Android shell, accounts and log-in, this plan | `docker compose up` starts a server the app can log in to ✅ |
 | 1 | Sync core (Yjs + Hocuspocus + local copy), the common frame, **Lists**, sharing by link and in-app notification, running on Unraid | A shared shopping list works in flight mode on both phones and merges right afterwards ✅ in tests and in two browsers; running on Unraid |
-| 2 | Notes, voice memos, the worker (speech to text on the GPU) | A recorded memo becomes text that can be moved to a note ✅ in tests and in a browser, with the worker on a GPU; on the phones and Unraid next |
-| 3 | Journal, search across everything, app lock | Search finds text in every section, offline too |
+| 2 | Notes, voice memos, the worker (speech to text on the GPU) | A recorded memo becomes text that can be moved to a note ✅ in tests and in a browser, with the worker on a GPU; running on Unraid |
+| 3 | Journal, search across everything, app lock | Search finds text in every section, offline too ✅ in tests and in a browser with the server stopped; on the phones next |
 | 4 | Scanner and OCR | A photographed receipt is cropped by itself and becomes searchable text |
 | 5 | Recipes | A recipe imported from a URL puts its ingredients on the shopping list and exports as a PDF |
 | 6 | Calendar | Other calendars show beside your own; a shared family calendar |

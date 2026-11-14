@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, CloudUpload, Hourglass, Loader } from "lucide-react";
-import type { MemoView, TranscriberInfo } from "@noterat/core";
+import type { MemoView, TranscriberInfo, Transcription } from "@noterat/core";
 import { useI18n } from "../lib/i18n";
 import { useSession, useUploads } from "../lib/sync-react";
+import { useFileUrl } from "../things/useFileUrl";
 
 /** 75 → "1:15" */
 export const clock = (seconds: number) => {
@@ -18,10 +19,14 @@ export const clock = (seconds: number) => {
  * going up), waiting for the transcriber, being transcribed, done, or failed.
  */
 export function MemoStatus({ memo, detail = false }: { memo: MemoView; detail?: boolean }) {
+  return <TranscriptStatus hash={memo.audio?.hash} transcription={memo.transcription} detail={detail} />;
+}
+
+/** The same for any recording: a memo's, or a journal entry's clip. */
+export function TranscriptStatus({ hash, transcription: tr, detail = false }: { hash?: string; transcription: Transcription | null; detail?: boolean }) {
   const { t } = useI18n();
   const uploads = useUploads();
-  const up = memo.audio ? uploads[memo.audio.hash] : undefined;
-  const tr = memo.transcription;
+  const up = hash ? uploads[hash] : undefined;
   const transcriber = useTranscriber(detail && tr?.status === "queued");
 
   if (up) {
@@ -89,27 +94,11 @@ function useTranscriber(ask: boolean): TranscriberInfo | null {
   return ask ? info : null;
 }
 
-/** A memo's recording, played from the device (fetched from the server the first time, if it's someone else's). */
+/** A recording, played from the device (fetched from the server the first time, if it's someone else's). */
 export function Player({ hash }: { hash: string }) {
   const { t } = useI18n();
-  const { sync } = useSession();
-  const [url, setUrl] = useState<string | null>(null);
-  const [missing, setMissing] = useState(false);
-  useEffect(() => {
-    let made: string | null = null;
-    let on = true;
-    void sync.files.get(hash).then((blob) => {
-      if (!on) return;
-      if (!blob) return setMissing(true);
-      made = URL.createObjectURL(blob);
-      setUrl(made);
-    });
-    return () => {
-      on = false;
-      if (made) URL.revokeObjectURL(made);
-    };
-  }, [hash, sync]);
-  if (missing) return <p className="muted small-text">{t("memo.noAudio")}</p>;
-  if (!url) return <p className="muted small-text">{t("lists.loading")}</p>;
+  const url = useFileUrl(hash);
+  if (url === null) return <p className="muted small-text">{t("memo.noAudio")}</p>;
+  if (url === undefined) return <p className="muted small-text">{t("lists.loading")}</p>;
   return <audio className="player" controls preload="metadata" src={url} />;
 }

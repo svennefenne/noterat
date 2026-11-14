@@ -117,6 +117,20 @@ export class Sync {
     return docs;
   }
 
+  private readonly thingLists = new Map<string, { id: string; type: ObjectType; doc: Y.Doc }[]>();
+
+  /** Things of any kind with their documents, as one array that stays the same as long as the things do. */
+  thingsOf(items: { id: string; type: ObjectType }[]) {
+    const key = items.map((i) => `${i.type}/${i.id}`).join(",");
+    let things = this.thingLists.get(key);
+    if (!things) {
+      things = items.map((i) => ({ ...i, doc: this.doc(objectDocName(i.type, i.id)) }));
+      this.thingLists.set(key, things);
+      if (this.thingLists.size > 6) this.thingLists.delete(this.thingLists.keys().next().value!);
+    }
+    return things;
+  }
+
   /** Whether a document has been read from the device yet (before that it looks empty). */
   isLoaded(name: string): boolean {
     return this.open.get(name)?.loaded ?? false;

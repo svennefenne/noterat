@@ -3,6 +3,7 @@ import type * as Y from "yjs";
 import { homePrefs, homeInvitations, homeItems, type HomeItem, type Invitation, type ItemPrefs, type User } from "@noterat/core";
 import type { FilesState } from "./files";
 import { signedInApi, type SignedInApi } from "./api";
+import type { AppLock, LockState } from "./lock";
 import type { Sync, SyncState } from "./sync";
 
 /** What the signed-in part of the app shares: who, where, their documents and the API. */
@@ -11,12 +12,13 @@ export interface Session {
   base: string;
   sync: Sync;
   api: SignedInApi;
+  lock: AppLock;
 }
 
 const Ctx = createContext<Session | null>(null);
 
-export function SessionProvider({ user, base, token, sync, children }: { user: User; base: string; token: string; sync: Sync; children: ReactNode }) {
-  const value = useMemo(() => ({ user, base, sync, api: signedInApi(base, token) }), [user, base, token, sync]);
+export function SessionProvider({ user, base, token, sync, lock, children }: { user: User; base: string; token: string; sync: Sync; lock: AppLock; children: ReactNode }) {
+  const value = useMemo(() => ({ user, base, sync, lock, api: signedInApi(base, token) }), [user, base, token, sync, lock]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
@@ -94,4 +96,10 @@ export function useDocsValues<T>(docs: Y.Doc[], read: (doc: Y.Doc) => T): T[] {
     return () => docs.forEach((d) => d.off("update", again));
   }, [docs, read]);
   return values;
+}
+
+/** The lock's settings, and whether it's locked now. */
+export function useLock(): LockState {
+  const { lock } = useSession();
+  return useSyncExternalStore(lock.subscribe, lock.getState);
 }

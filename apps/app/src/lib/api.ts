@@ -89,7 +89,7 @@ export function signedInApi(base: string, token: string) {
     acceptLink: (link: string) => at<AcceptReply>(`/api/links/${encodeURIComponent(link)}/accept`, { method: "POST" }),
     acceptInvitation: (id: string) => at<AcceptReply>(`/api/invitations/${id}/accept`, { method: "POST" }),
     declineInvitation: (id: string) => at<void>(`/api/invitations/${id}/decline`, { method: "POST" }),
-    transcribe: (id: string) => at<void>(`/api/objects/${id}/transcribe`, { method: "POST" }),
+    transcribe: (id: string, hash?: string) => at<void>(`/api/objects/${id}/transcribe`, { method: "POST", body: hash ? { hash } : {} }),
     transcriber: () => at<TranscriberInfo>("/api/transcriber"),
   };
 }

@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from "react";
-import { Bell, Cloud, CloudOff, HardDrive, ListChecks, Loader, Mic, NotebookPen, UserRound } from "lucide-react";
+import { Bell, BookHeart, Cloud, CloudOff, HardDrive, ListChecks, Loader, Mic, NotebookPen, Search, UserRound } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { isApp } from "../lib/api";
 import { useI18n } from "../lib/i18n";
-import { useInvitations, useSession, useSyncState } from "../lib/sync-react";
+import { useInvitations, useLock, useSession, useSyncState } from "../lib/sync-react";
 import { pathOf, SECTION } from "../lib/things";
-import { Menu, MenuItem, Problem } from "../ui";
+import { Dialog, Menu, MenuItem, Problem } from "../ui";
+import { LockSettingsForm } from "./LockGate";
 
 /**
  * The signed-in app's frame: the name (home), the sections (along the top on a wide screen, at the
@@ -13,7 +14,9 @@ import { Menu, MenuItem, Problem } from "../ui";
  */
 export function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => void }) {
   const { t, lang, setLang } = useI18n();
-  const { user, base } = useSession();
+  const { user, base, lock } = useSession();
+  const { settings } = useLock();
+  const [locking, setLocking] = useState(false);
   return (
     <div className="app">
       <header className="topbar">
@@ -24,16 +27,24 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
         <Sections />
         <div className="topbar-actions">
           <SyncBadge />
+          <Link href="/search" className="icon-button" aria-label={t("search.open")} title={t("search.open")}>
+            <Search aria-hidden size={20} />
+          </Link>
           <Invitations />
           <Menu label={t("menu.open")} icon={<UserRound aria-hidden size={20} />} className="end">
             <div className="menu-text">{t("menu.signedInAs", { name: user.displayName })}</div>
             {isApp && <div className="menu-text muted">{t("menu.server", { server: new URL(base).host })}</div>}
             <MenuItem onSelect={() => setLang(lang === "sv" ? "en" : "sv")}>{t("lang.other")}</MenuItem>
+            <MenuItem onSelect={() => setLocking(true)}>{t("lock.settings")}</MenuItem>
+            {settings.scope !== "off" && <MenuItem onSelect={() => lock.lockNow()}>{t("lock.now")}</MenuItem>}
             <MenuItem onSelect={onLogout}>{t("menu.logout")}</MenuItem>
           </Menu>
         </div>
       </header>
       <main className="content">{children}</main>
+      <Dialog open={locking} onClose={() => setLocking(false)} title={t("lock.settings")}>
+        <LockSettingsForm onDone={() => setLocking(false)} />
+      </Dialog>
     </div>
   );
 }
@@ -42,6 +53,7 @@ const SECTIONS = [
   { type: "list", Icon: ListChecks },
   { type: "note", Icon: NotebookPen },
   { type: "memo", Icon: Mic },
+  { type: "journal", Icon: BookHeart },
 ] as const;
 
 function Sections() {

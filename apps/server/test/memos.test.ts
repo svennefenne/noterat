@@ -1,11 +1,15 @@
 import { createHash, randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  addClip,
   CHUNK_SIZE,
+  entryBody,
+  initEntry,
   initMemo,
   memoText,
   newObjectId,
   objectDocName,
+  readEntry,
   readMemo,
   type FileStatus,
   type ShareReply,
@@ -201,5 +205,44 @@ describe("transcription", () => {
     expect((await call<TranscriberInfo>(base, "GET", "/api/transcriber", ada.token)).json).toEqual({ state: "none", queued: 0 });
     expect((await worker(base, "/next", {})).status).toBe(503);
     expect((await call<{ error: string }>(base, "POST", `/api/objects/${id}/transcribe`, ada.token)).json.error).toBe("not_uploaded");
+  });
+});
+
+describe("a journal entry's voice clip", () => {
+  it("is transcribed like a memo, and its text goes at the end of the entry", async () => {
+    const { db, base } = await startServer({ workerToken: WORKER });
+    const ada = await account(db, "ada");
+    const id = newObjectId();
+    const entry = device(base, ada.token)(objectDocName("journal", id));
+    initEntry(entry.doc, { date: "2026-11-14", body: "Lugn kväll.", by: ada.user.id });
+    const first = new Uint8Array(randomBytes(5000));
+    const second = new Uint8Array(randomBytes(6000));
+    addClip(entry.doc, { hash: sha(first), type: "audio/webm", size: first.length, duration: 4 }, true);
+    // (one that isn't wanted as text: it stays a recording)
+    addClip(entry.doc, { hash: sha(second), type: "audio/webm", size: second.length, duration: 5 }, false);
+    await synced(entry.provider);
+
+    await upload(base, ada.token, id, first);
+    await upload(base, ada.token, id, second);
+    const clip = (h: string) => readEntry(entry.doc).clips.find((c) => c.hash === h)!;
+    await until(() => clip(sha(first)).transcription?.status === "queued", "the first clip to be queued");
+    expect(clip(sha(second)).transcription).toBeNull();
+
+    const job = (await nextJob(base))!;
+    expect(job.file.hash).toBe(sha(first));
+    await worker(base, `/jobs/${job.id}/progress`, { progress: 0.25 });
+    await until(() => clip(sha(first)).transcription?.progress === 0.25, "the clip's progress");
+    await worker(base, `/jobs/${job.id}/done`, { text: "Vi grillade på altanen.", language: "sv" });
+    await until(() => entryBody(entry.doc).toString() === "Lugn kväll.\n\nVi grillade på altanen.\n", "the text in the entry");
+    expect(clip(sha(first)).transcription).toMatchObject({ status: "done", language: "sv" });
+
+    // the other one, asked for afterwards
+    expect((await call(base, "POST", `/api/objects/${id}/transcribe`, ada.token, { hash: sha(second) })).status).toBe(202);
+    const later = (await nextJob(base))!;
+    expect(later.file.hash).toBe(sha(second));
+    await worker(base, `/jobs/${later.id}/done`, { text: "Sen kom regnet." });
+    await until(() => entryBody(entry.doc).toString().endsWith("Vi grillade på altanen.\n\nSen kom regnet.\n"), "the second text after the first");
+    // (a clip that isn't in the entry can't be asked for)
+    expect((await call<{ error: string }>(base, "POST", `/api/objects/${id}/transcribe`, ada.token, { hash: "f".repeat(64) })).json.error).toBe("not_uploaded");
   });
 });
