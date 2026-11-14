@@ -5,9 +5,11 @@ import { describe, expect, it } from "vitest";
 import type { ServerInfo, SessionReply, User } from "@noterat/core";
 import { createApp } from "../src/app";
 import { openDb } from "../src/db";
+import { createSync } from "../src/sync";
 
 function server(webDir: string | null = null, trustedIpHeader = "") {
-  return createApp({ db: openDb(":memory:"), version: "test", webDir, trustedIpHeader });
+  const db = openDb(":memory:");
+  return createApp({ db, sync: createSync(db), version: "test", webDir, trustedIpHeader, publicUrl: "" });
 }
 type App = ReturnType<typeof server>;
 

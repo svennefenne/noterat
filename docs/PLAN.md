@@ -57,8 +57,8 @@ brings things up to date.
   "Sam wants to share *Shopping list* with you – Accept". With the app installed it opens in the app
   (Android App Links), else in the web app. Someone without an account makes one on this server (the
   link is their invitation; there's no open sign-up).
-- **On the same server**: pick a person in the app; the invitation shows as a notification (in the app
-  when it's open, as a push when it isn't).
+- **On the same server**: pick a person in the app; the invitation shows at once under the bell (it's
+  written into their home document: decision 5), and as a push when the app is closed (phase 8).
 - Accepting makes them a member: the thing syncs down and changes flow live. A share can be taken back,
   left, or its role changed. Sharing a whole collection ("Household recipes") is an option, as a choice.
 - Sharing between different Noterat servers (federation) is not planned.
@@ -78,6 +78,8 @@ then mostly a document type and its screens.
   - "Everyone / a group / only me" becomes Noterat's sharing; a person column picks among the list's members.
   - Each cell is its own field in the list's Yjs document: different cells filled in offline both stay;
     the same cell, the last change wins.
+  - The new row last isn't in the document: writing in it adds a row of its own, so two people adding
+    at once both keep what they added (decision 5).
   - "Own rows" is enforced by the app at first (other people's rows are locked); the server checks
     roles per document. Checking each change per row on the server can come later.
   - No comments or reactions at first.
@@ -106,7 +108,7 @@ then mostly a document type and its screens.
 | Phase | What | Done when |
 |---|---|---|
 | 0 | Monorepo, CI, Docker image, Unraid template, Android shell, accounts and log-in, this plan | `docker compose up` starts a server the app can log in to ✅ |
-| 1 | Sync core (Yjs + Hocuspocus + local copy), the common frame, **Lists**, sharing by link and in-app notification, running on Unraid | A shared shopping list works in flight mode on both phones and merges right afterwards |
+| 1 | Sync core (Yjs + Hocuspocus + local copy), the common frame, **Lists**, sharing by link and in-app notification, running on Unraid | A shared shopping list works in flight mode on both phones and merges right afterwards ✅ in tests and in two browsers; on the phones and Unraid next |
 | 2 | Notes, voice memos, the worker (speech to text on the GPU) | A recorded memo becomes text that can be moved to a note |
 | 3 | Journal, search across everything, app lock | Search finds text in every section, offline too |
 | 4 | Scanner and OCR | A photographed receipt is cropped by itself and becomes searchable text |

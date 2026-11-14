@@ -8,12 +8,12 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/svennefenne/noterat/issues</Support>
   <Project>https://github.com/svennefenne/noterat</Project>
-  <Overview>Noterat: notes, a journal, voice memos, lists, a budget, a calendar, recipes and a receipt and document scanner, for you and the people you choose to share with. Live when you're online, and the Android app keeps working offline. Everything lives in one folder (appdata). Early days: accounts and the app's log-in so far; the sections come phase by phase.</Overview>
+  <Overview>Noterat: notes, a journal, voice memos, lists, a budget, a calendar, recipes and a receipt and document scanner, for you and the people you choose to share with. Live when you're online, and the Android app keeps working offline. Everything lives in one folder (appdata). Early days: lists so far (shared live, and working offline in the app); the other sections come phase by phase.</Overview>
   <Category>Productivity: Tools:</Category>
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/svennefenne/noterat/main/unraid/noterat.xml</TemplateURL>
   <ExtraParams>--restart unless-stopped</ExtraParams>
-  <Config Name="Web UI port" Target="3000" Default="3300" Mode="tcp" Description="Port of the website and the API the app uses. Put your reverse proxy (SWAG, Nginx Proxy Manager...) in front of it with HTTPS, so phones can reach it from anywhere and share links work." Type="Port" Display="always" Required="true" Mask="false">3300</Config>
+  <Config Name="Web UI port" Target="3000" Default="3300" Mode="tcp" Description="Port of the website and the API the app uses. Put your reverse proxy (SWAG, Nginx Proxy Manager...) in front of it with HTTPS and WebSockets allowed (the live sync is a WebSocket at /sync), so phones can reach it from anywhere and share links work." Type="Port" Display="always" Required="true" Mask="false">3300</Config>
   <Config Name="Appdata" Target="/data" Default="/mnt/user/appdata/noterat" Mode="rw" Description="The database and everything people add. Back this up (the Appdata Backup plugin does)." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/noterat</Config>
   <Config Name="Public URL" Target="PUBLIC_URL" Default="" Mode="" Description="The address people use, e.g. https://noterat.example.com. Used for share links." Type="Variable" Display="always" Required="false" Mask="false"/>
   <Config Name="Time zone" Target="TZ" Default="Europe/Stockholm" Mode="" Description="For the calendar and reminders." Type="Variable" Display="always" Required="false" Mask="false">Europe/Stockholm</Config>

@@ -5,9 +5,10 @@ scanning app. Self-hosted in a Docker container (made for Unraid), with an Andro
 of everything on the phone: it works offline and catches up when it's back online. Nothing is shared
 until you share it, and what you share is live for everyone in it.
 
-**Status: phase 0 of 8.** The server, accounts and log-in, the app's first screens (web and Android),
-the Docker image, the Unraid template and CI. The sections arrive phase by phase, Lists first; see
-[the plan](docs/PLAN.md) and [the decisions behind it](docs/decisions/).
+**Status: phase 1 of 8: Lists.** Lists of your own making (as in Hooden: typed columns, templates,
+who fills in what), kept on the device and synced live, shared by a link or with someone on the same
+server, and merged right after being changed offline in several places. Next are notes, voice memos and
+the rest, phase by phase; see [the plan](docs/PLAN.md) and [the decisions behind it](docs/decisions/).
 
 ## Run it
 
@@ -22,7 +23,9 @@ container from `ghcr.io/svennefenne/noterat:latest` with:
 - `PUBLIC_URL`: the address people use, e.g. `https://noterat.example.com`.
 
 Put your reverse proxy (SWAG, Nginx Proxy Manager…) in front of it with HTTPS, so phones reach it from
-anywhere and share links work. Open the address: the first account you make is the admin.
+anywhere and share links work. It has to let WebSockets through: the live sync is one, at `/sync` (in
+Nginx Proxy Manager, turn on "Websockets Support"; SWAG's and Caddy's defaults do it). Open the
+address: the first account you make is the admin.
 
 ### With Docker Compose
 
@@ -50,7 +53,7 @@ npm run dev        # the server on :3000 and the app on http://localhost:5173
 | Command | What it does |
 |---|---|
 | `npm run dev` | Server (restarts on changes) and app (Vite), side by side |
-| `npm test` | The server's tests (Vitest) |
+| `npm test` | The tests (Vitest): the lists' model, and the server for real, with devices syncing over its WebSocket, offline and back |
 | `npm run typecheck` | TypeScript, every package |
 | `npm run lint` | ESLint, the whole repository |
 | `npm run build` | The server bundle (`apps/server/dist`) and the app (`apps/app/dist`) |
@@ -59,10 +62,12 @@ npm run dev        # the server on :3000 and the app on http://localhost:5173
 
 ```
 apps/
-  server/     Node + Hono + SQLite: the API (and, from phase 1, the live sync)
-  app/        React + Vite: the app for the web, and inside Capacitor (android/) for Android
+  server/     Node + Hono + SQLite: the API, sharing, and the live sync (Hocuspocus at /sync)
+  app/        React + Vite: the app for the web, and inside Capacitor (android/) for Android;
+              everything kept in IndexedDB on the device (lib/sync.ts)
 packages/
-  core/       what the server and the app share: the API's shapes and its checks
+  core/       what the server and the app share: the API's shapes and checks, document names,
+              the home document, and the lists' model (lists.ts)
 docker/       the image's entrypoint (runs as PUID:PGID)
 unraid/       the Unraid template
 docs/         the plan and the decisions

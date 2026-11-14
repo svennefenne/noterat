@@ -1,46 +1,32 @@
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { Hono, type Context } from "hono";
 import { cors } from "hono/cors";
-import { createMiddleware } from "hono/factory";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
-import {
-  checkDisplayName,
-  checkPassword,
-  checkUsername,
-  type ApiErrorBody,
-  type ErrorCode,
-  type ServerInfo,
-  type SessionReply,
-  type User,
-} from "@noterat/core";
-import { createSession, dummyHash, endSession, hashPassword, LoginThrottle, sessionUser, verifyPassword } from "./auth";
+import { checkDisplayName, checkPassword, checkUsername, type ApiErrorBody, type ServerInfo, type SessionReply } from "@noterat/core";
+import { createSession, dummyHash, endSession, hashPassword, LoginThrottle, verifyPassword } from "./auth";
 import type { DB } from "./db";
+import { Fail, readBody, signedIn, text, type Env } from "./http";
+import { shareRoutes } from "./sharing";
+import type { Sync } from "./sync";
 import { createUser, toUser, userByUsername, userCount } from "./users";
 import { webFiles } from "./web";
 
+export { Fail } from "./http";
+
 export interface AppOptions {
   db: DB;
+  sync: Sync;
   version: string;
   /** the app's built files, or null (development: Vite serves them) */
   webDir: string | null;
   /** a header holding the visitor's address, set by a trusted proxy ("" = the connection's own) */
   trustedIpHeader: string;
+  /** the address people use (share links), or "" for the address each request came to */
+  publicUrl: string;
 }
-
-/** A request turned down: the API answers `{ "error": code }` with this status. */
-export class Fail extends Error {
-  constructor(
-    readonly code: ErrorCode,
-    readonly status: ContentfulStatusCode,
-  ) {
-    super(code);
-  }
-}
-
-type Env = { Variables: { user: User; sessionId: string } };
 
 /**
- * The server's HTTP side: the API under /api, and the app's own files on every other path.
+ * The server's HTTP side: the API under /api, and the app's own files on every other path. (The live
+ * sync is the WebSocket at /sync: sync.ts.)
  *
  * The app logs in with a bearer token rather than a cookie: the Android app runs from its own origin
  * (https://localhost) and talks to the server across origins, where a token simply works. So the API
@@ -50,6 +36,7 @@ export function createApp(o: AppOptions) {
   const { db } = o;
   const app = new Hono<Env>();
   const throttle = new LoginThrottle();
+  const auth = signedIn(db);
 
   app.onError((err, c) => {
     if (err instanceof Fail) return c.json({ error: err.code } satisfies ApiErrorBody, err.status);
@@ -68,15 +55,6 @@ export function createApp(o: AppOptions) {
     "/api/*",
     cors({ origin: "*", allowHeaders: ["Authorization", "Content-Type"], allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE"], maxAge: 86_400 }),
   );
-
-  const signedIn = createMiddleware<Env>(async (c, next) => {
-    const m = /^Bearer\s+(\S+)$/i.exec(c.req.header("authorization") ?? "");
-    const s = m ? sessionUser(db, m[1]!) : null;
-    if (!s) throw new Fail("unauthorized", 401);
-    c.set("user", s.user);
-    c.set("sessionId", s.sessionId);
-    await next();
-  });
 
   const clientIp = (c: Context): string => {
     if (o.trustedIpHeader) {
@@ -132,12 +110,14 @@ export function createApp(o: AppOptions) {
     return c.json({ token, user: toUser(row) } satisfies SessionReply);
   });
 
-  app.get("/api/me", signedIn, (c) => c.json(c.get("user")));
+  app.get("/api/me", auth, (c) => c.json(c.get("user")));
 
-  app.post("/api/logout", signedIn, (c) => {
+  app.post("/api/logout", auth, (c) => {
     endSession(db, c.get("sessionId"));
     return c.body(null, 204);
   });
+
+  shareRoutes(app, { db, sync: o.sync, publicUrl: o.publicUrl });
 
   app.all("/api/*", () => {
     throw new Fail("not_found", 404);
@@ -147,11 +127,3 @@ export function createApp(o: AppOptions) {
 
   return app;
 }
-
-async function readBody(c: Context): Promise<Record<string, unknown>> {
-  const body: unknown = await c.req.json().catch(() => null);
-  if (!body || typeof body !== "object" || Array.isArray(body)) throw new Fail("bad_request", 400);
-  return body as Record<string, unknown>;
-}
-
-const text = (v: unknown) => (typeof v === "string" ? v : "");

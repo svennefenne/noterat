@@ -1,0 +1,108 @@
+import { useState, type ReactNode } from "react";
+import { Bell, Cloud, CloudOff, HardDrive, Loader, UserRound } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { isApp } from "../lib/api";
+import { useI18n } from "../lib/i18n";
+import { useInvitations, useSession, useSyncState } from "../lib/sync-react";
+import { Menu, MenuItem, Problem } from "../ui";
+
+/** The signed-in app's frame: the name (home), whether it's synced, invitations, and the account menu. */
+export function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => void }) {
+  const { t, lang, setLang } = useI18n();
+  const { user, base } = useSession();
+  return (
+    <div className="app">
+      <header className="topbar">
+        <Link href="/" className="topbar-brand">
+          <img src="/icon.svg" alt="" width={28} height={28} />
+          <span>Noterat</span>
+        </Link>
+        <div className="topbar-actions">
+          <SyncBadge />
+          <Invitations />
+          <Menu label={t("menu.open")} icon={<UserRound aria-hidden size={20} />} className="end">
+            <div className="menu-text">{t("menu.signedInAs", { name: user.displayName })}</div>
+            {isApp && <div className="menu-text muted">{t("menu.server", { server: new URL(base).host })}</div>}
+            <MenuItem onSelect={() => setLang(lang === "sv" ? "en" : "sv")}>{t("lang.other")}</MenuItem>
+            <MenuItem onSelect={onLogout}>{t("menu.logout")}</MenuItem>
+          </Menu>
+        </div>
+      </header>
+      <main className="content">{children}</main>
+    </div>
+  );
+}
+
+/** Synced, connecting, or offline (with changes kept on the device meanwhile). */
+function SyncBadge() {
+  const { t } = useI18n();
+  const { connection, waiting } = useSyncState();
+  const [icon, text, hint, kind] =
+    connection === "online" && waiting === 0
+      ? [<Cloud key="c" aria-hidden size={16} />, t("sync.online"), "", "ok"]
+      : connection === "online" || connection === "connecting"
+        ? [<Loader key="l" aria-hidden size={16} className="spin" />, waiting > 0 ? t("sync.waiting") : t("sync.connecting"), t("sync.waitingHint"), "busy"]
+        : [waiting > 0 ? <HardDrive key="h" aria-hidden size={16} /> : <CloudOff key="o" aria-hidden size={16} />, waiting > 0 ? t("sync.waiting") : t("sync.offline"), t("sync.offlineHint"), "off"];
+  return (
+    <span className={`sync-badge ${kind}`} title={hint || undefined} role="status">
+      {icon}
+      <span className="sync-text">{text}</span>
+    </span>
+  );
+}
+
+/** Invitations from people on the server, with a count; accepting opens what's shared. */
+function Invitations() {
+  const { t, errorText } = useI18n();
+  const { api } = useSession();
+  const invitations = useInvitations();
+  const [, navigate] = useLocation();
+  const [problem, setProblem] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function answer(id: string, accept: boolean) {
+    setBusy(true);
+    setProblem("");
+    try {
+      if (accept) {
+        const r = await api.acceptInvitation(id);
+        navigate(`/lists/${r.objectId}`);
+      } else await api.declineInvitation(id);
+    } catch (err) {
+      setProblem(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Menu
+      label={t("invitations.open")}
+      className="end invitations"
+      icon={
+        <>
+          <Bell aria-hidden size={20} />
+          {invitations.length > 0 && <span className="count">{invitations.length}</span>}
+        </>
+      }
+    >
+      <div className="menu-heading">{t("invitations.title")}</div>
+      {invitations.length === 0 && <div className="menu-text muted">{t("invitations.none")}</div>}
+      {invitations.map((i) => (
+        <div key={i.id} className="invitation">
+          <p>{t("invitations.text", { name: i.from.displayName, title: i.title || t("lists.untitled") })}</p>
+          <p className="muted small-text">{t(i.role === "editor" ? "invitations.editor" : "invitations.viewer")}</p>
+          <div className="invitation-actions">
+            <button type="button" role="menuitem" className="primary small" disabled={busy} onClick={() => void answer(i.id, true)}>
+              {t("invitations.accept")}
+            </button>
+            <button type="button" role="menuitem" className="secondary small" disabled={busy} onClick={() => void answer(i.id, false)}>
+              {t("invitations.decline")}
+            </button>
+          </div>
+        </div>
+      ))}
+      {problem && <Problem>{problem}</Problem>}
+    </Menu>
+  );
+}

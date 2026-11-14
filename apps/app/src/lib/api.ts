@@ -1,5 +1,21 @@
 import { Capacitor } from "@capacitor/core";
-import type { ApiErrorBody, ErrorCode, LoginInput, ServerInfo, SessionReply, SetupInput, User } from "@noterat/core";
+import type {
+  AcceptReply,
+  ApiErrorBody,
+  ErrorCode,
+  LinkInfo,
+  LoginInput,
+  Person,
+  ServerInfo,
+  SessionReply,
+  SetupInput,
+  ShareInput,
+  ShareReply,
+  ShareRole,
+  ShareState,
+  SignupReply,
+  User,
+} from "@noterat/core";
 
 /**
  * Talking to the server. On the web the app is served by the server itself, so the API is on the same
@@ -20,7 +36,7 @@ export class ApiError extends Error {
 }
 
 interface Call {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   token?: string;
 }
@@ -52,7 +68,29 @@ export const api = {
   login: (base: string, input: LoginInput) => call<SessionReply>(base, "/api/login", { method: "POST", body: input }),
   me: (base: string, token: string) => call<User>(base, "/api/me", { token }),
   logout: (base: string, token: string) => call<void>(base, "/api/logout", { method: "POST", token }),
+
+  // a share link's page works before logging in
+  linkInfo: (base: string, link: string) => call<LinkInfo>(base, `/api/links/${encodeURIComponent(link)}`),
+  signupByLink: (base: string, link: string, input: SetupInput) => call<SignupReply>(base, `/api/links/${encodeURIComponent(link)}/signup`, { method: "POST", body: input }),
 };
+
+/** The API as someone logged in: sharing. */
+export function signedInApi(base: string, token: string) {
+  const at = <T>(path: string, o: Omit<Call, "token"> = {}) => call<T>(base, path, { ...o, token });
+  return {
+    people: () => at<Person[]>("/api/people"),
+    shareState: (id: string) => at<ShareState>(`/api/objects/${id}/share`),
+    share: (id: string, input: ShareInput) => at<ShareReply>(`/api/objects/${id}/share`, { method: "POST", body: input }),
+    revoke: (id: string, inviteId: string) => at<void>(`/api/objects/${id}/share/${encodeURIComponent(inviteId)}`, { method: "DELETE" }),
+    setRole: (id: string, userId: number, role: ShareRole) => at<void>(`/api/objects/${id}/members/${userId}`, { method: "PATCH", body: { role } }),
+    removeMember: (id: string, userId: number) => at<void>(`/api/objects/${id}/members/${userId}`, { method: "DELETE" }),
+    deleteObject: (id: string) => at<void>(`/api/objects/${id}`, { method: "DELETE" }),
+    acceptLink: (link: string) => at<AcceptReply>(`/api/links/${encodeURIComponent(link)}/accept`, { method: "POST" }),
+    acceptInvitation: (id: string) => at<AcceptReply>(`/api/invitations/${id}/accept`, { method: "POST" }),
+    declineInvitation: (id: string) => at<void>(`/api/invitations/${id}/decline`, { method: "POST" }),
+  };
+}
+export type SignedInApi = ReturnType<typeof signedInApi>;
 
 /** What someone typed as the server's address, made whole: https:// unless they wrote http://, no path. Null: not an address. */
 export function serverAddress(input: string): string | null {
