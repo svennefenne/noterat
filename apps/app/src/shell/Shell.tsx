@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Bell, BookHeart, Cloud, CloudOff, HardDrive, ListChecks, Loader, Mic, NotebookPen, Search, UserRound } from "lucide-react";
+import { Bell, BookHeart, Cloud, CloudOff, HardDrive, ListChecks, Loader, Mic, NotebookPen, ScanLine, Search, UserRound } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { isApp } from "../lib/api";
 import { useI18n } from "../lib/i18n";
@@ -54,6 +54,7 @@ const SECTIONS = [
   { type: "note", Icon: NotebookPen },
   { type: "memo", Icon: Mic },
   { type: "journal", Icon: BookHeart },
+  { type: "scan", Icon: ScanLine },
 ] as const;
 
 function Sections() {

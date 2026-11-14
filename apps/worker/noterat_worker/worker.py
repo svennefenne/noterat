@@ -1,5 +1,8 @@
-"""The loop: ask Noterat for a job, fetch the recording, transcribe it, send the text back. Forever,
-through a server that restarts, a network that drops and a token that's wrong, without crashing."""
+"""The loop: ask Noterat for a job, fetch its files, do it, send the result back. Forever, through a
+server that restarts, a network that drops and a token that's wrong, without crashing.
+
+Two kinds of job: transcribe (a recording to text) and ocr (a scan's pages to text and a searchable
+PDF, the pages found in photos and straightened first where the job asks for it)."""
 
 from __future__ import annotations
 
@@ -14,6 +17,7 @@ from typing import Any
 
 from .client import ApiError, Client, JobGone, NotFound, Unauthorized, Unreachable
 from .model import Model, Segment, UndecodableAudio, join_text
+from .scan import Cancelled, OcrFailed, Page, Scanner, UndecodableImage, UnknownLanguage, join_pages, language_of, page_text
 
 log = logging.getLogger("noterat_worker")
 
@@ -25,10 +29,10 @@ class Stopping(Exception):
 class Shutdown:
     """The signal handler and the flag it sets.
 
-    The flag is enough while a job runs: the loop looks at it between segments, and gives the job
-    back. While the worker only waits (on the server's 25-s long poll, or for the model to load), the
-    handler also raises Stopping, so `docker stop` doesn't have to wait for the wait. A second signal
-    quits at once.
+    The flag is enough while a job runs: the loop looks at it between segments (or pages), and gives
+    the job back. While the worker only waits (on the server's 25-s long poll, or for the model to
+    load), the handler also raises Stopping, so `docker stop` doesn't have to wait for the wait. A
+    second signal quits at once.
     """
 
     def __init__(self) -> None:
@@ -67,10 +71,12 @@ class Worker:
     def __init__(
         self,
         client: Client,
-        model: Model,
+        model: Model | None,
         *,
         worker_name: str,
-        model_name: str,
+        model_name: str | None,
+        scanner: Scanner | None = None,
+        kinds: tuple[str, ...] | None = None,
         server: str = "",
         shutdown: Shutdown | None = None,
         progress_every: float = 5.0,
@@ -83,6 +89,11 @@ class Worker:
     ):
         self.client = client
         self.model = model
+        self.scanner = scanner
+        # the kinds of job it asks for: those it has what it takes for, unless told otherwise
+        self.kinds = kinds or tuple(kind for kind, engine in (("transcribe", model), ("ocr", scanner)) if engine is not None)
+        if not self.kinds:
+            raise ValueError("a worker needs a model, a scanner or both")
         self.worker_name = worker_name
         self.model_name = model_name
         self.server = server or client.base
@@ -102,7 +113,7 @@ class Worker:
     # ── asking for work ──
 
     def run(self) -> None:
-        log.info("asking %s for work as %r", self.server, self.worker_name)
+        log.info("asking %s for work (%s) as %r", self.server, ", ".join(self.kinds), self.worker_name)
         while not self.shutdown.is_set():
             self.step()
         log.info("stopped")
@@ -112,7 +123,7 @@ class Worker:
         asked = self.clock()
         try:
             with self.shutdown.interruptible():
-                job = self.client.next_job(self.worker_name, self.model_name)
+                job = self.client.next_job(self.worker_name, self.model_name, self.kinds)
         except Stopping:
             return
         except Unauthorized:
@@ -153,19 +164,31 @@ class Worker:
             self.handle(job)
         except Exception as e:  # a job shaped in a way nobody expected mustn't take the worker down
             log.exception("job %s: unexpected error", job.get("id"))
-            self._failed(str(job["id"]), f"the transcriber ran into an error ({type(e).__name__}: {e})", retry=True)
+            who = "the worker" if job.get("kind") == "ocr" else "the transcriber"
+            self._failed(str(job["id"]), f"{who} ran into an error ({type(e).__name__}: {e})", retry=True)
 
     # ── a job ──
 
     def handle(self, job: dict[str, Any]) -> None:
         job_id = str(job["id"])
+        kind = job.get("kind", "transcribe")
+        if kind not in self.kinds:
+            # the server only sends the kinds the worker asks for; another worker may take it
+            log.error("job %s is a %r job; this worker does %s", job_id, kind, " and ".join(self.kinds))
+            self._failed(job_id, f"the worker can't do {kind!r} jobs", retry=True)
+            return
+        if kind == "ocr":
+            self.read_scan(job)
+        else:
+            self.transcribe(job)
+
+    # ── transcription ──
+
+    def transcribe(self, job: dict[str, Any]) -> None:
+        job_id = str(job["id"])
         started = self.clock()
         if self.shutdown.is_set():
             self._failed(job_id, "the transcriber was stopped before it started", retry=True)
-            return
-        if job.get("kind", "transcribe") != "transcribe":
-            log.error("job %s is a %r job; this worker only transcribes", job_id, job.get("kind"))
-            self._failed(job_id, f"the worker can't do {job.get('kind')!r} jobs", retry=True)
             return
         file = job.get("file") or {}
         file_hash = str(file.get("hash") or "")
@@ -177,24 +200,7 @@ class Worker:
 
         with tempfile.TemporaryDirectory(prefix="noterat-worker-", dir=self.temp_dir) as tmp:
             path = os.path.join(tmp, "recording")
-            try:
-                self._download(file_hash, path)
-            except Stopping:
-                self._failed(job_id, "the transcriber was stopped before it finished", retry=True)
-                return
-            except NotFound:
-                log.error("job %s: the server hasn't got the recording %s", job_id, file_hash)
-                self._failed(job_id, "the recording isn't on the server", retry=False)
-                return
-            except JobGone:
-                log.info("job %s was taken back before the recording was fetched", job_id)
-                return
-            except Unauthorized:
-                log.error("job %s: the server turned down the worker token (401) for the recording", job_id)
-                return
-            except (Unreachable, ApiError) as e:
-                log.warning("job %s: couldn't fetch the recording (%s)", job_id, e)
-                self._failed(job_id, f"the transcriber couldn't fetch the recording ({e})", retry=True)
+            if not self._fetch(job_id, file_hash, path, what="the recording", who="the transcriber"):
                 return
 
             try:
@@ -226,8 +232,28 @@ class Worker:
                 len(result["text"]),
             )
 
+    def _fetch(self, job_id: str, file_hash: str, path: str, *, what: str, who: str) -> bool:
+        """Downloads a job's file; when it can't, says so to the server (or, if the job isn't ours any
+        more, to the log) and returns False."""
+        try:
+            self._download(file_hash, path)
+            return True
+        except Stopping:
+            self._failed(job_id, f"{who} was stopped before it finished", retry=True)
+        except NotFound:
+            log.error("job %s: the server hasn't got %s %s", job_id, what, file_hash)
+            self._failed(job_id, f"{what} isn't on the server", retry=False)
+        except JobGone:
+            log.info("job %s was taken back before %s was fetched", job_id, what)
+        except Unauthorized:
+            log.error("job %s: the server turned down the worker token (401) for %s", job_id, what)
+        except (Unreachable, ApiError) as e:
+            log.warning("job %s: couldn't fetch %s (%s)", job_id, what, e)
+            self._failed(job_id, f"{who} couldn't fetch {what} ({e})", retry=True)
+        return False
+
     def _download(self, file_hash: str, path: str) -> None:
-        """A couple of quick tries: a recording is small, and the server just handed out the job."""
+        """A couple of quick tries: a file is small, and the server just handed out the job."""
         delay = 1.0
         for attempt in range(3):
             try:
@@ -269,6 +295,121 @@ class Worker:
             "segments": [{"start": round(s.start, 2), "end": round(s.end, 2), "text": s.text} for s in segments],
         }
         return result, segments
+
+    # ── scans ──
+
+    def read_scan(self, job: dict[str, Any]) -> None:
+        """An ocr job: fetch the pages, find and straighten the page in each photo the job says isn't
+        cropped yet, read them all into one searchable PDF, hand the server the new files (the cropped
+        pages and the PDF), and then the text."""
+        job_id = str(job["id"])
+        started = self.clock()
+        if self.shutdown.is_set():
+            self._failed(job_id, "the worker was stopped before it started", retry=True)
+            return
+        files = job.get("files")
+        if not isinstance(files, list) or not files or not all(isinstance(f, dict) and f.get("hash") for f in files):
+            self._failed(job_id, "the job names no pages", retry=False)
+            return
+        hashes = [str(f["hash"]) for f in files]
+        wanted = job.get("crop") if isinstance(job.get("crop"), list) else []
+        crop = [i < len(wanted) and wanted[i] is True for i in range(len(hashes))]
+        language = language_of(job.get("language"))
+        if language is None:
+            self._failed(job_id, f"the job's language ({job.get('language')!r}) isn't one Tesseract can be asked for", retry=False)
+            return
+        assert self.scanner is not None
+        count = len(hashes)
+
+        def page_name(i: int) -> str:
+            return f"page {i + 1}" if count > 1 else "the page"
+
+        with tempfile.TemporaryDirectory(prefix="noterat-worker-", dir=self.temp_dir) as tmp:
+            pages: list[Page] = []
+            try:
+                for i, file_hash in enumerate(hashes):
+                    if self.shutdown.is_set():
+                        raise Stopping()
+                    src = os.path.join(tmp, f"file-{i}")
+                    if not self._fetch(job_id, file_hash, src, what=page_name(i), who="the worker"):
+                        return
+                    self._progress(job_id, 0.3 * (i + 0.5) / count)
+                    if self.shutdown.is_set():
+                        raise Stopping()
+                    try:
+                        pages.append(self.scanner.prepare(src, os.path.join(tmp, f"page-{i}"), crop[i]))
+                    except UndecodableImage as e:
+                        raise UndecodableImage(f"{page_name(i)}: {e}" if count > 1 else str(e)) from e
+                    self._progress(job_id, 0.3 * (i + 1) / count)
+
+                pdf = os.path.join(tmp, "scan.pdf")
+                texts = self.scanner.read([p.path for p in pages], pdf, language, self.shutdown.is_set)
+                self._progress(job_id, 0.9)
+
+                # Only now, with the reading done, do the new files go to the server: a job that fails
+                # or is taken back leaves nothing behind there.
+                result_pages = []
+                for page, file_hash, text in zip(pages, hashes, texts):
+                    if page.cropped:
+                        file_hash = self._upload(job_id, page.path, "image/jpeg")["hash"]
+                    # (and its size, upright, which a cropped page has a new one of)
+                    result_pages.append({"hash": file_hash, "text": page_text(text), "cropped": page.cropped, "width": page.width, "height": page.height})
+                pdf_hash = self._upload(job_id, pdf, "application/pdf")["hash"]
+            except JobGone:
+                log.info("job %s isn't this worker's any more (taken back, or the scan was deleted); stopped it", job_id)
+                return
+            except (Stopping, Cancelled):
+                log.info("job %s: stopping, so it goes back in the queue", job_id)
+                self._failed(job_id, "the worker was stopped before it finished", retry=True)
+                return
+            except (UndecodableImage, UnknownLanguage) as e:
+                log.error("job %s: %s", job_id, e)
+                self._failed(job_id, str(e), retry=False)
+                return
+            except OcrFailed as e:
+                log.error("job %s: %s", job_id, e)
+                self._failed(job_id, str(e), retry=True)
+                return
+            except Unauthorized:
+                log.error("job %s: the server turned down the worker token (401) for a file the job made", job_id)
+                return
+            except (Unreachable, ApiError) as e:
+                log.warning("job %s: couldn't hand the server a file the job made (%s)", job_id, e)
+                self._failed(job_id, f"the worker couldn't hand over the pages ({e})", retry=True)
+                return
+
+        result: dict[str, Any] = {
+            "text": join_pages(p["text"] for p in result_pages),
+            "language": language,
+            "pages": result_pages,
+            "pdf": {"hash": pdf_hash},
+            "model": self.scanner.name,
+        }
+        if self._report(job_id, "done", lambda: self.client.done(job_id, result)):
+            log.info(
+                "job %s: %d page%s (%d cropped) read in %.1f s (%s), %d chars",
+                job_id,
+                count,
+                "" if count == 1 else "s",
+                sum(1 for p in pages if p.cropped),
+                self.clock() - started,
+                language,
+                len(result["text"]),
+            )
+
+    def _upload(self, job_id: str, path: str, content_type: str) -> dict[str, Any]:
+        """A couple of quick tries, as for a download."""
+        delay = 1.0
+        for attempt in range(3):
+            try:
+                return self.client.upload(job_id, path, content_type)
+            except Unreachable:
+                if attempt == 2:
+                    raise
+                if self.shutdown.wait(delay):
+                    raise Stopping() from None
+                delay *= 2
+        raise AssertionError("unreachable")
 
     def _progress(self, job_id: str, progress: float) -> None:
         """409 (JobGone) goes up and stops the job; anything else is only a missed update."""

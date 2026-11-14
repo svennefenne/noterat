@@ -6,8 +6,8 @@ import type * as Y from "yjs";
  * maker becomes its owner. Each person also has a home document, "home/<user id>" (see home.ts).
  */
 
-/** The kinds of thing there are (lists from phase 1, notes and voice memos from phase 2, journal entries from phase 3; the others arrive with their phases). */
-export const OBJECT_TYPES = ["list", "note", "memo", "journal"] as const;
+/** The kinds of thing there are (lists from phase 1, notes and voice memos from phase 2, journal entries from phase 3, scans from phase 4; the others arrive with their phases). */
+export const OBJECT_TYPES = ["list", "note", "memo", "journal", "scan"] as const;
 export type ObjectType = (typeof OBJECT_TYPES)[number];
 export const isObjectType = (t: unknown): t is ObjectType => OBJECT_TYPES.includes(t as ObjectType);
 
@@ -72,4 +72,19 @@ export function plainLine(line: string): string {
     .replace(/[*_~`]+/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * A word as it's matched: lower case, without accents, so "Köttbullar" and "kottbullar" are the same
+ * word to search. Character by character, so a folded text lines up with the original (for snippets).
+ */
+export function fold(text: string): string {
+  let out = "";
+  for (const ch of text) {
+    const low = ch.toLowerCase();
+    const base = low.normalize("NFD")[0] ?? low;
+    // (only what keeps its length: "İ" lower-cases to two characters, and stays as it is)
+    out += base.length === ch.length ? base : low.length === ch.length ? low : ch;
+  }
+  return out;
 }

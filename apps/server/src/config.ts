@@ -15,5 +15,7 @@ export const config = {
   workerToken: process.env.WORKER_TOKEN || "",
   /** the language memos are transcribed in ("sv"; "auto": the model tells) */
   transcribeLanguage: process.env.TRANSCRIBE_LANGUAGE || "sv",
+  /** the languages scans are read in, as Tesseract names them */
+  ocrLanguage: process.env.OCR_LANGUAGE || "swe+eng",
   version: process.env.NOTERAT_VERSION || "dev",
 };

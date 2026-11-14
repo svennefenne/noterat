@@ -2201,3 +2201,134 @@ a.icon-button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ───────────── documents and receipts (phase 4) ───────────── */
+
+.scanner {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.scanner .segmented {
+  justify-self: start;
+}
+
+.scanner .segmented span {
+  display: inline;
+}
+
+.scanner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.scanner-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scan-button {
+  min-height: 52px;
+  padding: 0 22px;
+  font-size: 1.0625rem;
+}
+
+.scanner p {
+  margin: 0;
+}
+
+.scan-card {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.scan-card-main {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
+}
+
+.scan-card-main strong {
+  color: var(--text);
+}
+
+.scan-thumb {
+  flex-shrink: 0;
+  width: 56px;
+  height: 76px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.scan-thumb.empty {
+  background: var(--hover);
+}
+
+.receipt {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px;
+}
+
+.receipt .receipt-note {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+@media (max-width: 560px) {
+  .receipt {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .receipt .field:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.scan-pages {
+  display: flex;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 0 0 6px;
+  overflow-x: auto;
+  list-style: none;
+}
+
+.scan-page {
+  display: block;
+  width: 150px;
+  aspect-ratio: 3 / 4;
+  padding: 0;
+  overflow: hidden;
+  background: var(--hover);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  cursor: zoom-in;
+}
+
+.scan-page img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+.pdf-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  text-decoration: none;
+}

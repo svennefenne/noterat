@@ -1,23 +1,29 @@
 # syntax=docker/dockerfile:1.7
-# Noterat's speech-to-text worker: KB-Whisper through faster-whisper, on an Nvidia GPU (or, slowly, on
-# the CPU). It asks Noterat for recordings over HTTP and keeps nothing but the model, in /models.
+# Noterat's worker: speech to text with KB-Whisper through faster-whisper, on an Nvidia GPU (or, slowly,
+# on the CPU), and reading scans: the page found in a photo with OpenCV, read by Tesseract through
+# OCRmyPDF into a searchable PDF. It asks Noterat for work over HTTP and keeps nothing but the model, in
+# /models.
 #
 # No CUDA base image: the driver comes from the host (the Nvidia runtime mounts it in), and the one
 # CUDA library CTranslate2 4.9 loads, cuBLAS 12, comes from pip. FFmpeg comes inside PyAV's wheel.
+# Tesseract comes from Debian, with Swedish and English (and osd, with which it tells which way up a
+# page is). OCRmyPDF 17 rasterizes with pypdfium2 and writes a plain PDF itself, so it needs neither
+# Ghostscript nor (as it's run, without --clean) unpaper.
 ARG PYTHON_IMAGE=python:3.12-slim
 FROM ${PYTHON_IMAGE}
 ARG NOTERAT_VERSION=dev
 LABEL org.opencontainers.image.title="Noterat worker" \
-      org.opencontainers.image.description="Speech to text for Noterat's voice memos: KB-Whisper (faster-whisper) on an Nvidia GPU" \
+      org.opencontainers.image.description="Speech to text for Noterat's voice memos (KB-Whisper on an Nvidia GPU), and text and searchable PDFs from its scans (Tesseract)" \
       org.opencontainers.image.source="https://github.com/svennefenne/noterat"
 RUN apt-get update && apt-get install -y --no-install-recommends gosu tini tzdata \
+      tesseract-ocr tesseract-ocr-swe tesseract-ocr-eng \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
-# The dependencies (pyproject.toml's, and its cuda extra) in a layer of their own, so a change to the
-# code doesn't fetch the 1.5 GB of them again.
+# The dependencies (pyproject.toml's, and its cuda and ocr extras) in a layer of their own, so a change
+# to the code doesn't fetch the 1.6 GB of them again.
 COPY pyproject.toml ./
-RUN python -c "import tomllib; p = tomllib.load(open('pyproject.toml', 'rb'))['project']; print('\n'.join(p['dependencies'] + p['optional-dependencies']['cuda']))" > /tmp/requirements.txt \
+RUN python -c "import tomllib; p = tomllib.load(open('pyproject.toml', 'rb'))['project']; x = p['optional-dependencies']; print('\n'.join(p['dependencies'] + x['cuda'] + x['ocr']))" > /tmp/requirements.txt \
  && pip install --no-cache-dir --root-user-action=ignore -r /tmp/requirements.txt \
  && rm /tmp/requirements.txt
 
@@ -34,7 +40,8 @@ ENV LD_LIBRARY_PATH=/usr/local/lib/python3.12/site-packages/nvidia/cublas/lib \
 COPY noterat_worker ./noterat_worker
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod 755 /entrypoint.sh && mkdir -p /models \
- && python -c "import ctranslate2, faster_whisper, noterat_worker.whisper"
+ && python -c "import ctranslate2, faster_whisper, noterat_worker.whisper, noterat_worker.ocr, noterat_worker.pages" \
+ && tesseract --list-langs | grep -qx swe
 VOLUME /models
 ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
 CMD ["python", "-m", "noterat_worker"]

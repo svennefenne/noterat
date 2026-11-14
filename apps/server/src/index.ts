@@ -18,6 +18,7 @@ const app = createApp({
   dataDir: config.dataDir,
   workerToken: config.workerToken,
   transcribeLanguage: config.transcribeLanguage,
+  ocrLanguage: config.ocrLanguage,
 });
 
 const server = serve({ fetch: app.fetch, port: config.port, hostname: "0.0.0.0" }, (info) => {

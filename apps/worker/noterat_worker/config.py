@@ -7,6 +7,8 @@ import socket
 from dataclasses import dataclass
 
 DEFAULT_MODEL = "KBLab/kb-whisper-large"
+# What the worker can be asked to do: transcribe (speech to text) and ocr (read a scan).
+KINDS = ("transcribe", "ocr")
 
 
 class ConfigError(Exception):
@@ -22,6 +24,7 @@ class Config:
     compute_type: str | None = None  # None: float16 on a GPU, int8 on a CPU
     models_dir: str = "/models"
     worker_name: str = "noterat-worker"
+    kinds: tuple[str, ...] = KINDS
 
 
 def from_env(env: dict[str, str] | None = None, *, need_server: bool = True) -> Config:
@@ -46,6 +49,11 @@ def from_env(env: dict[str, str] | None = None, *, need_server: bool = True) -> 
     if device not in ("auto", "cuda", "cpu"):
         raise ConfigError(f"DEVICE should be auto, cuda or cpu (it is {device!r})")
 
+    kinds = tuple(dict.fromkeys(k.strip().lower() for k in get("WORKER_KINDS", ",".join(KINDS)).replace(" ", ",").split(",") if k.strip()))
+    unknown = [k for k in kinds if k not in KINDS]
+    if unknown or not kinds:
+        raise ConfigError(f"WORKER_KINDS should be transcribe, ocr or both, comma-separated (it is {get('WORKER_KINDS')!r})")
+
     return Config(
         noterat_url=url,
         token=token,
@@ -54,4 +62,5 @@ def from_env(env: dict[str, str] | None = None, *, need_server: bool = True) -> 
         compute_type=get("COMPUTE_TYPE") or None,
         models_dir=get("MODELS_DIR", "/models"),
         worker_name=get("WORKER_NAME") or socket.gethostname() or "noterat-worker",
+        kinds=kinds,
     )
