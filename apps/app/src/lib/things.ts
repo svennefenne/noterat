@@ -1,7 +1,7 @@
 import type { ObjectType } from "@noterat/core";
 
 /** Where each kind of thing lives in the app: its section and its own page. */
-export const SECTION: Record<ObjectType, string> = { list: "/lists", note: "/notes", memo: "/memos", journal: "/journal" };
+export const SECTION: Record<ObjectType, string> = { list: "/lists", note: "/notes", memo: "/memos", journal: "/journal", scan: "/scans" };
 
 export const pathOf = (type: ObjectType, id: string) => `${SECTION[type]}/${id}`;
 

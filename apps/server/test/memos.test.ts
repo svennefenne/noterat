@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   addClip,
@@ -15,10 +15,9 @@ import {
   type FileStatus,
   type ShareReply,
   type TranscriberInfo,
-  type UploadReply,
   type WorkerJob,
 } from "@noterat/core";
-import { account, call, device, startServer, synced, until } from "./helpers";
+import { account, call, device, put, sha, startServer, synced, until, upload, worker, WORKER } from "./helpers";
 
 /**
  * Voice memos on the server: a recording uploaded in pieces (and picked up where it stopped), read only
@@ -27,40 +26,13 @@ import { account, call, device, startServer, synced, until } from "./helpers";
  * speaking the worker's protocol.
  */
 
-const WORKER = "w".repeat(40);
-const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
+type TranscribeJob = Extract<WorkerJob, { kind: "transcribe" }>;
 
-async function put(base: string, token: string, hash: string, o: { object: string; offset: number; size: number; body: Uint8Array }) {
-  const res = await fetch(`${base}/api/files/${hash}?object=${o.object}&offset=${o.offset}&size=${o.size}&type=audio%2Fwebm%3Bcodecs%3Dopus`, {
-    method: "PUT",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
-    body: o.body,
-  });
-  return { status: res.status, json: (await res.json()) as UploadReply & { error?: string; received?: number } };
-}
-
-/** Upload a whole file in pieces, from wherever the server has got to. */
-async function upload(base: string, token: string, object: string, bytes: Uint8Array) {
-  const hash = sha(bytes);
-  for (let offset = 0; offset < bytes.length; offset += CHUNK_SIZE) {
-    const r = await put(base, token, hash, { object, offset, size: bytes.length, body: bytes.subarray(offset, offset + CHUNK_SIZE) });
-    expect(r.status).toBe(200);
-  }
-  return hash;
-}
-
-const worker = (base: string, path: string, body?: unknown, token = WORKER) =>
-  fetch(`${base}/api/worker${path}`, {
-    method: body === undefined ? "GET" : "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-
-async function nextJob(base: string): Promise<WorkerJob | null> {
+async function nextJob(base: string): Promise<TranscribeJob | null> {
   const res = await worker(base, "/next", { worker: "test", kinds: ["transcribe"], model: "KBLab/kb-whisper-large" });
   if (res.status === 204) return null;
   expect(res.status).toBe(200);
-  return ((await res.json()) as { job: WorkerJob }).job;
+  return ((await res.json()) as { job: TranscribeJob }).job;
 }
 
 /** Ada records a memo on her phone (wanting it transcribed) and it reaches the server. */

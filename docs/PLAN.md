@@ -34,7 +34,7 @@ brings things up to date.
 | Sync server | Hocuspocus | A Yjs server with per-document access checks and storage hooks |
 | Server | Node + Hono, SQLite (better-sqlite3) | One container, one folder to back up, the same language as the app |
 | Files | A volume on Unraid, uploads queued and resumable | Audio, photos and scans upload in the background |
-| Worker | faster-whisper with KB-Whisper, OCRmyPDF/Tesseract, recipe-scrapers | KB-Whisper is the National Library of Sweden's Swedish-trained Whisper; the RTX 3070 Ti (8 GB) runs the large model |
+| Worker | faster-whisper with KB-Whisper; OCRmyPDF/Tesseract and OpenCV; recipe-scrapers | KB-Whisper is the National Library of Sweden's Swedish-trained Whisper; the RTX 3070 Ti (8 GB) runs the large model. Scans are read on the CPU |
 | Distribution | GitHub Actions: image on ghcr.io, APK as a GitHub release | Unraid updates from its UI; the phone installs the APK (Obtainium can keep it updated) |
 
 ## Sync and offline
@@ -107,8 +107,10 @@ then mostly a document type and its screens.
   fallback), your own recipes, photos from the camera, gallery or the page (cropped and compressed),
   scaled servings, "Add the ingredients to the shopping list", shared live or exported as a PDF.
 - **Scanner**: ML Kit's document scanner on Android finds the edges, suggests a crop to accept or
-  adjust, and straightens the page. OCR on the phone gives text at once; the worker makes a searchable
-  PDF. From a receipt: shop, date and total, suggested as a transaction.
+  adjust, and straightens the page; ML Kit's text recognition reads it on the phone at once, offline
+  too. On the website a photo is enough: the worker finds the page and straightens it. The worker reads
+  every scan (Tesseract, Swedish) into a searchable PDF. From a receipt: shop, date and total, suggested
+  (and correctable), for the budget in phase 7 (decision 8).
 
 ## Phases
 
@@ -117,8 +119,8 @@ then mostly a document type and its screens.
 | 0 | Monorepo, CI, Docker image, Unraid template, Android shell, accounts and log-in, this plan | `docker compose up` starts a server the app can log in to ✅ |
 | 1 | Sync core (Yjs + Hocuspocus + local copy), the common frame, **Lists**, sharing by link and in-app notification, running on Unraid | A shared shopping list works in flight mode on both phones and merges right afterwards ✅ in tests and in two browsers; running on Unraid |
 | 2 | Notes, voice memos, the worker (speech to text on the GPU) | A recorded memo becomes text that can be moved to a note ✅ in tests and in a browser, with the worker on a GPU; running on Unraid |
-| 3 | Journal, search across everything, app lock | Search finds text in every section, offline too ✅ in tests and in a browser with the server stopped; on the phones next |
-| 4 | Scanner and OCR | A photographed receipt is cropped by itself and becomes searchable text |
+| 3 | Journal, search across everything, app lock | Search finds text in every section, offline too ✅ in tests, in a browser with the server stopped, and on the phones (fingerprint, photos, voice clips) |
+| 4 | Scanner and OCR | A photographed receipt is cropped by itself and becomes searchable text (phone: ML Kit; web: the worker) |
 | 5 | Recipes | A recipe imported from a URL puts its ingredients on the shopping list and exports as a PDF |
 | 6 | Calendar | Other calendars show beside your own; a shared family calendar |
 | 7 | Finances | A monthly budget with CSV import and receipts linked to transactions |

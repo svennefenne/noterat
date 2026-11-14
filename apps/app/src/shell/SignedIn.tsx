@@ -13,6 +13,8 @@ import { NoteScreen } from "../notes/NoteScreen";
 import { NotesScreen } from "../notes/NotesScreen";
 import { EntryScreen } from "../journal/EntryScreen";
 import { JournalScreen } from "../journal/JournalScreen";
+import { ScanScreen } from "../scans/ScanScreen";
+import { ScansScreen } from "../scans/ScansScreen";
 import { SearchScreen } from "../search/SearchScreen";
 import { preloadEditor } from "../notes/LazyEditor";
 import { Caught } from "../ui";
@@ -86,6 +88,10 @@ export function SignedIn({ base, token, user, onLogout, onExpired }: { base: str
               </LockGate>
             )}
           </Route>
+          <Route path="/scans">
+            <ScansScreen />
+          </Route>
+          <Route path="/scans/:id">{(p) => <ScanScreen key={p.id} id={p.id} />}</Route>
           <Route path="/search">
             <SearchScreen />
           </Route>

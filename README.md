@@ -5,14 +5,14 @@ scanning app. Self-hosted in a Docker container (made for Unraid), with an Andro
 of everything on the phone: it works offline and catches up when it's back online. Nothing is shared
 until you share it, and what you share is live for everyone in it.
 
-**Status: phase 3 of 8: Lists, notes, voice memos and the journal, and search.** Lists of your own
-making (as in Hooden: typed columns, templates, who fills in what); notes in Markdown, written together
-live; voice memos, turned into text by KB-Whisper on the server's GPU and moved on to a note or a list;
-and a journal, an entry per day with text, photos and voice clips, as a timeline or a calendar. Search
-finds words in all of it, on the device and offline; the journal (or the whole app) can be locked with
-the fingerprint. Everything is kept on the device and synced live, shared by a link or with someone on
-the same server, and merged right after being changed offline in several places. Next is the scanner;
-see [the plan](docs/PLAN.md) and [the decisions behind it](docs/decisions/).
+**Status: phase 4 of 8: Lists, notes, voice memos, the journal, documents, and search.** Lists of your
+own making (as in Hooden); notes in Markdown, written together live; voice memos, turned into text by
+KB-Whisper on the server's GPU; a journal with text, photos and voice clips; and a scanner for documents
+and receipts: on the phone the page is found, cropped and read at once (ML Kit), and the server makes a
+searchable PDF and suggests a receipt's shop, date and total. Search finds words in all of it, on the
+device and offline; the journal (or the whole app) can be locked with the fingerprint. Everything is
+kept on the device and synced live, shared by a link or with someone on the same server. Next are
+recipes; see [the plan](docs/PLAN.md) and [the decisions behind it](docs/decisions/).
 
 ## Run it
 
@@ -63,7 +63,7 @@ npm run dev        # the server on :3000 and the app on http://localhost:5173
 | Command | What it does |
 |---|---|
 | `npm run dev` | Server (restarts on changes) and app (Vite), side by side |
-| `npm test` | The tests (Vitest): the models of lists, notes, memos and journal entries and what's searched in them, and the server for real, with devices syncing over its WebSocket (offline and back), uploads in pieces, and a worker's jobs |
+| `npm test` | The tests (Vitest): the models of lists, notes, memos, journal entries and scans, receipts, and what's searched in them; and the server for real, with devices syncing over its WebSocket (offline and back), uploads in pieces, and a worker's jobs (speech to text and OCR) |
 | `npm run typecheck` | TypeScript, every package |
 | `npm run lint` | ESLint, the whole repository |
 | `npm run build` | The server bundle (`apps/server/dist`) and the app (`apps/app/dist`) |
@@ -76,11 +76,12 @@ apps/
               (Hocuspocus at /sync)
   app/        React + Vite: the app for the web, and inside Capacitor (android/) for Android;
               everything kept in IndexedDB on the device (lib/sync.ts, lib/files.ts)
-  worker/     Python: speech to text with faster-whisper and KB-Whisper, on the GPU (optional)
+  worker/     Python: speech to text (faster-whisper, KB-Whisper, on the GPU) and reading scans
+              (OpenCV, OCRmyPDF, Tesseract) (optional)
 packages/
   core/       what the server and the app share: the API's shapes and checks, document names,
-              the home document, files, the models of lists, notes, memos and journal entries,
-              what's transcribed where, and what's searchable
+              the home document, files, the models of lists, notes, memos, journal entries and
+              scans, receipts, what's transcribed where, and what's searchable
 docker/       the image's entrypoint (runs as PUID:PGID)
 unraid/       the Unraid template
 docs/         the plan and the decisions

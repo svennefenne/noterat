@@ -64,6 +64,20 @@ async function sha256(file: string): Promise<string> {
   return h.digest("hex");
 }
 
+/** A whole file made on the server's side (by the worker: a cropped page, a PDF), kept and referred to by a thing. */
+export function keepFile(db: DB, store: FileStore, bytes: Uint8Array, type: string, objectId: string): { hash: string; size: number; type: string } {
+  const hash = createHash("sha256").update(bytes).digest("hex");
+  const clean = cleanFileType(type);
+  if (!fileRow(db, hash)) {
+    const to = store.path(hash);
+    fs.mkdirSync(path.dirname(to), { recursive: true });
+    fs.writeFileSync(to, bytes);
+    db.prepare("insert or ignore into files (hash, size, type, uploaded_by, created_at) values (?, ?, ?, null, ?)").run(hash, bytes.length, clean, Date.now());
+  }
+  addRef(db, objectId, hash);
+  return { hash, size: bytes.length, type: fileRow(db, hash)!.type };
+}
+
 export function fileRoutes(app: Hono<Env>, o: { db: DB; store: FileStore; onUploaded: (obj: ObjectRow, hash: string) => void }) {
   const { db, store } = o;
   const auth = signedIn(db);

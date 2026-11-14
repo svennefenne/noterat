@@ -1,8 +1,9 @@
-"""A stand-in for Noterat's worker API (docs/decisions/0006, "The worker"), on a real socket, so the
-tests go through the worker's actual HTTP code."""
+"""A stand-in for Noterat's worker API (docs/decisions/0006, "The worker", and 0008 for scans), on a
+real socket, so the tests go through the worker's actual HTTP code."""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import threading
@@ -18,7 +19,7 @@ class Request:
     method: str
     path: str
     headers: dict[str, str]
-    body: Any
+    body: Any  # JSON, parsed; any other body as bytes
 
 
 @dataclass
@@ -30,6 +31,8 @@ class FakeNoterat:
     # status codes for progress / done / failed, in turn; then 204s
     progress_statuses: list[int] = field(default_factory=list)
     done_statuses: list[int] = field(default_factory=list)
+    # and for PUT /jobs/:id/files (a file the job made); then 200s
+    upload_statuses: list[int] = field(default_factory=list)
     idle_wait: float = 0.02  # how long an empty /next is held (the real server: up to 25 s)
 
     def __post_init__(self) -> None:
@@ -46,6 +49,9 @@ class FakeNoterat:
 
             def do_POST(self) -> None:
                 fake._handle(self, "POST")
+
+            def do_PUT(self) -> None:
+                fake._handle(self, "PUT")
 
         self._server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self._server.daemon_threads = True
@@ -66,6 +72,15 @@ class FakeNoterat:
         with self._cond:
             return [r for r in self.requests if r.path.endswith(suffix)]
 
+    def uploads(self) -> list[tuple[str, str, bytes]]:
+        """The files jobs handed over: (job id, Content-Type, bytes), in turn."""
+        with self._cond:
+            return [
+                (m.group(1), r.headers.get("Content-Type", ""), r.body)
+                for r in self.requests
+                if r.method == "PUT" and (m := re.fullmatch(r"/api/worker/jobs/([^/]+)/files", r.path))
+            ]
+
     def wait_for(self, check: Callable[[list[Request]], bool], timeout: float = 5.0) -> None:
         with self._cond:
             if not self._cond.wait_for(lambda: check(self.requests), timeout):
@@ -76,7 +91,8 @@ class FakeNoterat:
     def _handle(self, h: BaseHTTPRequestHandler, method: str) -> None:
         length = int(h.headers.get("Content-Length") or 0)
         raw = h.rfile.read(length) if length else b""
-        body = json.loads(raw) if raw else None
+        is_json = (h.headers.get("Content-Type") or "").startswith("application/json")
+        body = (json.loads(raw) if is_json else raw) if raw else None
         with self._cond:
             self.requests.append(Request(method, h.path, dict(h.headers.items()), body))
             self._cond.notify_all()
@@ -103,6 +119,14 @@ class FakeNoterat:
             h.end_headers()
             h.wfile.write(data)
             return
+        if method == "PUT" and re.fullmatch(r"/api/worker/jobs/([^/]+)/files", path):
+            status = self.upload_statuses.pop(0) if self.upload_statuses else 200
+            if status != 200:
+                return self._send(h, status, {"error": "test"})
+            # the server keeps it by hash, as an upload from the app
+            digest = hashlib.sha256(raw).hexdigest()
+            self.files[digest] = raw
+            return self._send(h, 200, {"hash": digest, "size": len(raw), "type": h.headers.get("Content-Type")})
         if method == "POST" and (m := re.fullmatch(r"/api/worker/jobs/([^/]+)/(progress|done|failed)", path)):
             queue = {"progress": self.progress_statuses, "done": self.done_statuses}.get(m.group(2), [])
             status = queue.pop(0) if queue else 204

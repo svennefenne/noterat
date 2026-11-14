@@ -1,4 +1,5 @@
-"""The worker's side of Noterat's worker API (docs/decisions/0006, "The worker"), over plain urllib.
+"""The worker's side of Noterat's worker API (docs/decisions/0006, "The worker", and 0008 for scans),
+over plain urllib.
 
 Every answer the worker has to act on differently is its own exception, so the loop can say what
 happened in words: a wrong token, a job that isn't ours any more, a server that can't be reached.
@@ -8,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import urllib.error
 import urllib.request
@@ -38,11 +40,11 @@ class Unauthorized(ApiError):
 
 
 class JobGone(ApiError):
-    """409: the job isn't this worker's any more (taken back, or the memo was deleted)."""
+    """409: the job isn't this worker's any more (taken back, or the memo or scan was deleted)."""
 
 
 class NotFound(ApiError):
-    """404 for a file: the server hasn't got the recording."""
+    """404 for a file: the server hasn't got it."""
 
 
 class Unreachable(Exception):
@@ -59,7 +61,7 @@ class Client:
 
     # ── the protocol ──
 
-    def next_job(self, worker: str, model: str, kinds: tuple[str, ...] = ("transcribe",)) -> dict[str, Any] | None:
+    def next_job(self, worker: str, model: str | None, kinds: tuple[str, ...] = ("transcribe",)) -> dict[str, Any] | None:
         """Waits (on the server) for a job; None when there's none (204)."""
         status, body = self._call("POST", "/next", {"worker": worker, "kinds": list(kinds), "model": model}, timeout=NEXT_TIMEOUT)
         if status == 204 or not body:
@@ -71,7 +73,7 @@ class Client:
         return job
 
     def download(self, file_hash: str, dest: str) -> int:
-        """Saves the recording to dest; checks it against its hash. Returns its size."""
+        """Saves the file (a recording, a scan's page) to dest; checks it against its hash. Returns its size."""
         req = self._request("GET", "/files/" + quote(file_hash, safe=""), None)
         digest = hashlib.sha256()
         size = 0
@@ -90,6 +92,38 @@ class Client:
         if _SHA256.match(file_hash) and digest.hexdigest() != file_hash.lower():
             raise Unreachable(f"the file's bytes don't match its hash ({size} bytes received)")
         return size
+
+    def upload(self, job_id: str, path: str, content_type: str) -> dict[str, Any]:
+        """Hands the server a file the job made (a cropped page, the PDF), which it keeps by hash:
+        returns its { hash, size, type }. Raises JobGone (409) when the job isn't ours any more."""
+        size = os.path.getsize(path)
+        digest = hashlib.sha256()
+        with open(path, "rb") as f:
+            while chunk := f.read(CHUNK):
+                digest.update(chunk)
+        headers = dict(self.headers)
+        headers.update({"Content-Type": content_type, "Content-Length": str(size)})
+        url = f"{self.base}/jobs/{quote(str(job_id), safe='')}/files"
+        try:
+            with open(path, "rb") as f:
+                req = urllib.request.Request(url, data=f, headers=headers, method="PUT")
+                with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
+                    body = res.read()
+        except urllib.error.HTTPError as e:
+            raise self._error(e) from None
+        except (urllib.error.URLError, OSError) as e:
+            raise Unreachable(_reason(e)) from None
+        try:
+            data = json.loads(body)
+        except ValueError:
+            data = None
+        if not isinstance(data, dict) or not isinstance(data.get("hash"), str) or not data["hash"]:
+            raise ApiError(200, f"expected {{ hash, size, type }}, got {body[:200]!r}")
+        # The server names the file by the SHA-256 of what it got; a different one means it didn't get
+        # what was sent.
+        if _SHA256.match(data["hash"]) and data["hash"].lower() != digest.hexdigest():
+            raise Unreachable(f"the server got other bytes than were sent ({data.get('size')} of {size})")
+        return data
 
     def progress(self, job_id: str, progress: float) -> None:
         """Raises JobGone (409) when the job isn't ours any more."""

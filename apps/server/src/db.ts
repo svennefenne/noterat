@@ -114,6 +114,10 @@ const MIGRATIONS: string[] = [
   create index jobs_status on jobs(status, created_at);
   create index jobs_object on jobs(object_id);
   `,
+  /* 4: jobs over several files (a scan's pages, phase 4) */ `
+  -- the job's files, as JSON: [{ "hash": …, "crop": true|false }] (a transcription's one recording too)
+  alter table jobs add column files text;
+  `,
 ];
 
 /** Open (or make) the database at file (":memory:" for tests), brought up to the latest schema. */

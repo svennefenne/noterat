@@ -59,6 +59,15 @@ dependencies {
     implementation project(':capacitor-cordova-android-plugins')
 }
 
+// ML Kit's text recognition: only the Latin model (Swedish and English). The plugin also brings the
+// Chinese, Devanagari, Japanese and Korean ones, several megabytes each, which the app never asks for.
+configurations.configureEach {
+    exclude group: 'com.google.mlkit', module: 'text-recognition-chinese'
+    exclude group: 'com.google.mlkit', module: 'text-recognition-devanagari'
+    exclude group: 'com.google.mlkit', module: 'text-recognition-japanese'
+    exclude group: 'com.google.mlkit', module: 'text-recognition-korean'
+}
+
 apply from: 'capacitor.build.gradle'
 
 try {

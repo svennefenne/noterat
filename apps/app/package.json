@@ -12,6 +12,8 @@
     "android": "vite build && cap sync android"
   },
   "dependencies": {
+    "@capacitor-mlkit/document-scanner": "^8.2.2",
+    "@capacitor-mlkit/text-recognition": "^8.2.2",
     "@capacitor/android": "^8.6.2",
     "@capacitor/core": "^8.6.2",
     "@capgo/capacitor-native-biometric": "^8.9.3",

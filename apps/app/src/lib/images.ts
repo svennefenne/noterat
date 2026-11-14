@@ -11,7 +11,7 @@ export interface Shrunk {
   height: number;
 }
 
-export async function shrinkPhoto(file: Blob): Promise<Shrunk | null> {
+export async function shrinkPhoto(file: Blob, maxSide = MAX_SIDE, quality = 0.85): Promise<Shrunk | null> {
   let bitmap: ImageBitmap;
   try {
     // (turned the way the camera held it)
@@ -19,7 +19,7 @@ export async function shrinkPhoto(file: Blob): Promise<Shrunk | null> {
   } catch {
     return null;
   }
-  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
   const width = Math.round(bitmap.width * scale);
   const height = Math.round(bitmap.height * scale);
   const canvas = document.createElement("canvas");
@@ -29,6 +29,6 @@ export async function shrinkPhoto(file: Blob): Promise<Shrunk | null> {
   if (!ctx) return null;
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
   return blob ? { blob, width, height } : null;
 }

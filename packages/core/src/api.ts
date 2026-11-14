@@ -172,16 +172,36 @@ export interface TranscriberInfo {
   queued: number;
 }
 
-/** POST /api/worker/next: a job for the worker (decision 6). */
-export interface WorkerJob {
-  id: string;
-  kind: "transcribe";
-  file: { hash: string; type: string; size: number };
-  /** "sv", or null to let the model tell */
-  language: string | null;
+/** What a worker does: speech to text (decision 6), reading scans (decision 8). */
+export type JobKind = "transcribe" | "ocr";
+
+export interface WorkerFile {
+  hash: string;
+  type: string;
+  size: number;
 }
 
-/** POST /api/worker/jobs/:id/done */
+/** POST /api/worker/next: a job for the worker. */
+export type WorkerJob =
+  | {
+      id: string;
+      kind: "transcribe";
+      file: WorkerFile;
+      /** "sv", or null to let the model tell */
+      language: string | null;
+    }
+  | {
+      id: string;
+      kind: "ocr";
+      /** the scan's pages */
+      files: WorkerFile[];
+      /** as Tesseract names them: "swe+eng" */
+      language: string;
+      /** per page: a photo to find the page in and straighten, not a cropped page yet */
+      crop: boolean[];
+    };
+
+/** POST /api/worker/jobs/:id/done, for a transcription (an OCR job's adds pages and pdf: decision 8) */
 export interface WorkerDone {
   text: string;
   language?: string;

@@ -91,6 +91,7 @@ export function signedInApi(base: string, token: string) {
     declineInvitation: (id: string) => at<void>(`/api/invitations/${id}/decline`, { method: "POST" }),
     transcribe: (id: string, hash?: string) => at<void>(`/api/objects/${id}/transcribe`, { method: "POST", body: hash ? { hash } : {} }),
     transcriber: () => at<TranscriberInfo>("/api/transcriber"),
+    ocr: (id: string) => at<void>(`/api/objects/${id}/ocr`, { method: "POST" }),
   };
 }
 export type SignedInApi = ReturnType<typeof signedInApi>;

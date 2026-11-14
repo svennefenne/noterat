@@ -3,9 +3,11 @@ import os from "node:os";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
+import { createHash } from "node:crypto";
 import { serve } from "@hono/node-server";
 import { HocuspocusProvider, HocuspocusProviderWebsocket } from "@hocuspocus/provider";
-import { afterEach } from "vitest";
+import { afterEach, expect } from "vitest";
+import { CHUNK_SIZE, type UploadReply } from "@noterat/core";
 import * as Y from "yjs";
 import { createApp } from "../src/app";
 import { createSession, hashPassword } from "../src/auth";
@@ -93,3 +95,35 @@ export async function until(check: () => boolean, what: string, ms = 4000) {
 }
 
 export const synced = (p: HocuspocusProvider) => until(() => p.isSynced && !p.hasUnsyncedChanges, "the device to be synced");
+
+// ───────────── files and the worker ─────────────
+
+export const WORKER = "w".repeat(40);
+export const sha = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
+
+export async function put(base: string, token: string, hash: string, o: { object: string; offset: number; size: number; body: Uint8Array }) {
+  const res = await fetch(`${base}/api/files/${hash}?object=${o.object}&offset=${o.offset}&size=${o.size}&type=audio%2Fwebm%3Bcodecs%3Dopus`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
+    body: o.body,
+  });
+  return { status: res.status, json: (await res.json()) as UploadReply & { error?: string; received?: number } };
+}
+
+/** Upload a whole file in pieces, from wherever the server has got to. */
+export async function upload(base: string, token: string, object: string, bytes: Uint8Array) {
+  const hash = sha(bytes);
+  for (let offset = 0; offset < bytes.length; offset += CHUNK_SIZE) {
+    const r = await put(base, token, hash, { object, offset, size: bytes.length, body: bytes.subarray(offset, offset + CHUNK_SIZE) });
+    expect(r.status).toBe(200);
+  }
+  return hash;
+}
+
+export const worker = (base: string, path: string, body?: unknown, token = WORKER) =>
+  fetch(`${base}/api/worker${path}`, {
+    method: body === undefined ? "GET" : "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+

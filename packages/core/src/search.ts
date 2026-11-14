@@ -2,6 +2,8 @@ import type * as Y from "yjs";
 import type { ObjectType } from "./docs";
 import { entryBody, entryTitle, readEntry } from "./journal";
 import { readList } from "./lists";
+import { formatAmount } from "./receipts";
+import { readScan, scanText, scanTitle } from "./scans";
 import { memoText, memoTitle, readMemo } from "./memos";
 import { noteBody, noteTitle, readNote } from "./notes";
 
@@ -45,25 +47,17 @@ export function searchable(type: ObjectType, id: string, doc: Y.Doc): Searchable
       const text = memoText(doc).toString();
       return { id, type, title: memoTitle(m, text), text, tags: [], at: m.createdAt };
     }
+    case "scan": {
+      const sc = readScan(doc);
+      const text = scanText(doc).toString();
+      const r = sc.receipt;
+      const extra = r ? [r.shop, r.date, r.total !== undefined ? formatAmount(r.total) : ""].filter(Boolean).join(" · ") : "";
+      return { id, type, title: scanTitle(sc, text), text: [extra, text].filter(Boolean).join("\n"), tags: [], at: sc.createdAt };
+    }
     case "journal": {
       const e = readEntry(doc);
       const body = entryBody(doc).toString();
       return { id, type, title: entryTitle(e, body), text: `${e.date}\n${body}`, tags: [], at: Date.parse(`${e.date}T12:00:00`) || e.createdAt };
     }
   }
-}
-
-/**
- * A word as it's matched: lower case, without accents, so "Köttbullar" and "kottbullar" are the same
- * word to search. Character by character, so a folded text lines up with the original (for snippets).
- */
-export function fold(text: string): string {
-  let out = "";
-  for (const ch of text) {
-    const low = ch.toLowerCase();
-    const base = low.normalize("NFD")[0] ?? low;
-    // (only what keeps its length: "İ" lower-cases to two characters, and stays as it is)
-    out += base.length === ch.length ? base : low.length === ch.length ? low : ch;
-  }
-  return out;
 }
