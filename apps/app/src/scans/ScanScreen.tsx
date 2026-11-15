@@ -27,6 +27,7 @@ import { saveOrShare } from "../lib/save";
 import { Dialog, Menu, MenuItem, Problem } from "../ui";
 import { when } from "../memos/MemosScreen";
 import { ScanStatus } from "./ScanStatus";
+import { ToBudget } from "../budget/ToBudget";
 
 const readText = (doc: Y.Doc) => scanText(doc).toString();
 
@@ -108,7 +109,12 @@ function ScanPage({ id, role }: { id: string; role: MemberRole }) {
         {problem && <Problem>{problem}</Problem>}
       </div>
 
-      {scan.kind === "receipt" && <ReceiptFields doc={doc} receipt={scan.receipt ?? {}} readOnly={readOnly} />}
+      {scan.kind === "receipt" && (
+        <>
+          <ReceiptFields doc={doc} receipt={scan.receipt ?? {}} readOnly={readOnly} />
+          <ToBudget scanId={id} receipt={scan.receipt ?? {}} />
+        </>
+      )}
 
       <ul className="scan-pages">
         {scan.pages.map((p, i) => (

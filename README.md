@@ -5,13 +5,14 @@ scanning app. Self-hosted in a Docker container (made for Unraid), with an Andro
 of everything on the phone: it works offline and catches up when it's back online. Nothing is shared
 until you share it, and what you share is live for everyone in it.
 
-**Status: phase 6 of 8: Lists, notes, voice memos, the journal, documents, recipes, the calendar, and
-search.** Lists of your own making (as in Hooden); notes in Markdown, written together live; voice memos,
+**Status: phase 7 of 8: Lists, notes, voice memos, the journal, documents, recipes, the calendar, the
+budget, and search.** Lists of your own making (as in Hooden); notes in Markdown, written together live; voice memos,
 turned into text by KB-Whisper on the server's GPU; a journal with text, photos and voice clips; a
 scanner for documents and receipts; recipes imported from a link, scaled and put on the shopping list;
 and calendars, shared (a family calendar) or subscribed to (any ICS address, and the phone's own), with
-repeats, reminders and a private feed for other calendar apps. Search finds words in all of it, offline
-too; the journal (or the whole app) can be locked with the fingerprint. Next is the budget; see
+repeats, reminders and a private feed for other calendar apps; and a household budget, month by month
+(envelopes or zero-based), filled from the bank's CSV export and from receipts. Search finds words in all of it, offline
+too; the journal (or the whole app) can be locked with the fingerprint. Next are push notifications and the desktop app; see
 [the plan](docs/PLAN.md) and [the decisions behind it](docs/decisions/).
 
 ## Run it

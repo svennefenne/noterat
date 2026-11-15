@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Bell, BookHeart, CalendarDays, ChefHat, Cloud, CloudOff, Ellipsis, HardDrive, ListChecks, Loader, Mic, NotebookPen, ScanLine, Search, UserRound } from "lucide-react";
+import { Bell, BookHeart, CalendarDays, ChefHat, Cloud, CloudOff, Ellipsis, HardDrive, ListChecks, Loader, Mic, NotebookPen, ScanLine, Search, UserRound, Wallet } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { isApp } from "../lib/api";
 import { useI18n } from "../lib/i18n";
@@ -57,6 +57,7 @@ const SECTIONS = [
   { type: "memo", Icon: Mic },
   { type: "scan", Icon: ScanLine },
   { type: "recipe", Icon: ChefHat },
+  { type: "budget", Icon: Wallet },
 ] as const;
 
 /** How many sections fit in a phone's tab bar; the rest are under "More". */

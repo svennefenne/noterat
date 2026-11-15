@@ -14,6 +14,8 @@ import { NotesScreen } from "../notes/NotesScreen";
 import { EntryScreen } from "../journal/EntryScreen";
 import { JournalScreen } from "../journal/JournalScreen";
 import { CalendarScreen } from "../calendar/CalendarScreen";
+import { BudgetsScreen } from "../budget/BudgetScreen";
+import { BudgetScreen } from "../budget/BudgetPage";
 import { useReminders } from "../calendar/useReminders";
 import { RecipeScreen } from "../recipes/RecipeScreen";
 import { RecipesScreen } from "../recipes/RecipesScreen";
@@ -107,6 +109,10 @@ export function SignedIn({ base, token, user, onLogout, onExpired }: { base: str
           <Route path="/calendar/:id">
             <Redirect to="/calendar" />
           </Route>
+          <Route path="/budget">
+            <BudgetsScreen />
+          </Route>
+          <Route path="/budget/:id">{(p) => <BudgetScreen key={p.id} id={p.id} />}</Route>
           <Route path="/search">
             <SearchScreen />
           </Route>

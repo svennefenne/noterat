@@ -2822,3 +2822,333 @@ a.icon-button {
   background: var(--hover);
   border-radius: var(--radius-small);
 }
+
+/* ───────────── budget (phase 7) ───────────── */
+
+.budget-screen {
+  max-width: 880px;
+}
+
+.budget-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 8px 0 16px;
+}
+
+.budget-totals > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+}
+
+.budget-totals strong {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.budget-totals .bad strong,
+.budget-table .bad,
+.tx-amount.bad {
+  color: var(--danger);
+}
+
+.budget-tabs {
+  margin-bottom: 16px;
+}
+
+.budget-tabs .badge {
+  margin-left: 6px;
+}
+
+.budget-month > button {
+  margin-bottom: 12px;
+}
+
+.budget-group {
+  margin-bottom: 20px;
+}
+
+.budget-group h3 {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.budget-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.budget-table th,
+.budget-table td {
+  padding: 6px 4px;
+  text-align: right;
+  border-bottom: 1px solid var(--line);
+}
+
+.budget-table thead th {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.budget-table th[scope="row"],
+.budget-table thead th:first-child {
+  text-align: left;
+  font-weight: 500;
+  width: 40%;
+}
+
+.budget-table th[scope="row"] .progress {
+  margin-top: 4px;
+  max-width: 220px;
+}
+
+.progress.over span {
+  background: var(--danger);
+}
+
+.amount-input {
+  width: 100%;
+  max-width: 110px;
+  padding: 4px 6px;
+  text-align: right;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.amount-input:hover:not([readonly]),
+.amount-input:focus {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.plain-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plain-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.budget-tx-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.tx-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tx {
+  display: grid;
+  grid-template-columns: 3.2em 1fr auto minmax(120px, 180px) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.tx-list.preview .tx {
+  grid-template-columns: 6em 1fr auto;
+}
+
+.tx-date {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tx-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tx-receipt {
+  margin-left: 6px;
+  color: var(--accent);
+  vertical-align: -2px;
+}
+
+.tx-amount {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.tx-amount.in {
+  color: var(--accent);
+}
+
+.tx-category {
+  min-width: 0;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.goal .goal-name {
+  flex: 1 1 8em;
+}
+
+.goal .progress {
+  flex: 1 1 120px;
+  margin: 0;
+}
+
+.quick-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.quick-add input {
+  flex: 1 1 10em;
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.quick-add .amount-input,
+.quick-add .day-input {
+  flex: 0 0 5.5em;
+  border-color: var(--line);
+}
+
+.report {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.report th,
+.report td {
+  padding: 4px;
+  font-size: 0.85rem;
+  text-align: center;
+  vertical-align: bottom;
+}
+
+.report th[scope="row"] {
+  text-align: left;
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+.report thead th {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.report .bar {
+  display: block;
+  width: 70%;
+  max-width: 28px;
+  margin: 0 auto;
+  background: var(--accent);
+  border-radius: 3px 3px 0 0;
+}
+
+.report .bar-label {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.file-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  cursor: pointer;
+}
+
+.import-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.to-budget {
+  margin-top: 12px;
+}
+
+.to-budget h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.to-budget-new {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+p.to-budget {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 560px) {
+  .tx {
+    grid-template-columns: 3.2em 1fr auto auto;
+  }
+
+  .tx .tx-category {
+    grid-row: 2;
+    grid-column: 2 / 4;
+  }
+
+  .tx .icon-button {
+    grid-column: 4;
+    grid-row: 1;
+  }
+
+  .budget-table th[scope="row"] {
+    width: auto;
+  }
+}
