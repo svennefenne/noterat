@@ -62,18 +62,24 @@ APK or AppImage put in the appdata folder's `app/` (named as CI names them,
 `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_ALIAS`; keep a copy of it safe.
 
 **Push notifications** go through your own (free) Firebase project, so nothing about Firebase is built
-into the APK. As the admin, open the account menu → *Push (Firebase)…* and follow the three steps: create a
+into the APK. As the admin, open *Administration* in the account menu → *Push* and follow the three steps: create a
 project with an Android app named `io.github.svennefenne.noterat`, then pick its `google-services.json`
 and a service account's private key (Project settings → Service accounts). The phones start Firebase
 with it at their next start and ask for permission. Each person picks what they're told about, and
 quiet hours, under *Notifications…*; a push only ever says that something happened, never what's in it.
 The desktop app shows the same notifications while it runs (in the tray too), with or without Firebase.
 
-**Mail** (for sending out shared costs) goes through your own SMTP server. As the admin, open the account
-menu → *Mail (SMTP)…*, fill in the server and send yourself a test mail; with Gmail that's
+**Mail** (for sending out shared costs) goes through your own SMTP server. As the admin, open
+*Administration* → *Mail*, fill in the server and send yourself a test mail; with Gmail that's
 `smtp.gmail.com`, STARTTLS, your Gmail address as user and sender, and an app password. Or set
 `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` (`starttls`, `tls` or `none`), `SMTP_USER`, `SMTP_PASS`,
 `SMTP_FROM` and `SMTP_FROM_NAME` on the container; what's saved in the app takes over from them.
+
+**Administration** (the account menu, for admins; [decision 14](docs/decisions/0014-household-settings-and-admin.md))
+holds the household's accounts (add someone, rename, make an admin, a new password, log out everywhere,
+remove), its look (Noterat's colours or any of Hooden's 98 colour schemes, light, dark or auto; anyone can
+pick their own under *Appearance…*), how days and times are written and the time zone the server goes by,
+Swish on or off for shared costs, push, mail, and which builds of the apps the server offers.
 
 ### The desktop app (Linux)
 

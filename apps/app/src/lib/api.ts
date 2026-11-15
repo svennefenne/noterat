@@ -3,6 +3,7 @@ import type {
   AcceptReply,
   ApiErrorBody,
   ErrorCode,
+  Household,
   LinkInfo,
   LoginInput,
   Person,
@@ -13,6 +14,7 @@ import type {
   ShareReply,
   ShareRole,
   ShareState,
+  Role,
   SignupReply,
   TranscriberInfo,
   User,
@@ -114,10 +116,41 @@ export function signedInApi(base: string, token: string) {
     adminMail: () => at<AdminMail>("/api/admin/mail"),
     setAdminMail: (m: MailSettingsInput) => at<AdminMail>("/api/admin/mail", { method: "PUT", body: m }),
     testMail: (to: string, lang: string) => at<{ sent: boolean; error?: string }>(`/api/admin/mail/test?lang=${lang}`, { method: "POST", body: { to } }),
+    desktopRelease: () => at<AppRelease | null>("/api/app/desktop"),
+    serverInfo: () => at<ServerInfo>("/api/server"),
+    setHousehold: (patch: unknown) => at<Household>("/api/admin/household", { method: "PUT", body: patch }),
+    adminUsers: () => at<AdminUser[]>("/api/admin/users"),
+    addUser: (u: { username: string; displayName: string; password: string; role: Role }) => at<AdminUser>("/api/admin/users", { method: "POST", body: u }),
+    changeUser: (id: number, change: { displayName?: string; role?: Role }) => at<AdminUser>(`/api/admin/users/${id}`, { method: "PATCH", body: change }),
+    setUserPassword: (id: number, password: string) => at<AdminUser>(`/api/admin/users/${id}/password`, { method: "POST", body: { password } }),
+    logOutUser: (id: number) => at<AdminUser>(`/api/admin/users/${id}/logout`, { method: "POST" }),
+    removalOf: (id: number) => at<Removal>(`/api/admin/users/${id}/removal`),
+    removeUser: (id: number) => at<Removal>(`/api/admin/users/${id}`, { method: "DELETE" }),
     sendSplit: (id: string, lang: string, to?: string[]) => at<{ results: { id: string; sent: boolean; error?: string }[] }>(`/api/objects/${id}/send`, { method: "POST", body: { lang, ...(to ? { to } : {}) } }),
   };
 }
 export type SignedInApi = ReturnType<typeof signedInApi>;
+
+/** An account, as the admin page shows it (decision 14). */
+export interface AdminUser {
+  id: number;
+  username: string;
+  displayName: string;
+  role: Role;
+  createdAt: number;
+  /** when one of their devices last asked anything, or null */
+  lastSeen: number | null;
+  /** devices logged in */
+  devices: number;
+  /** things that are theirs */
+  owns: number;
+}
+
+/** What removing someone does to their things: handed over to someone they're shared with, or deleted. */
+export interface Removal {
+  handedOver: number;
+  deleted: number;
+}
 
 /** What the phone needs to start Firebase (the public half of google-services.json), if push is set up. */
 export interface PushConfig {

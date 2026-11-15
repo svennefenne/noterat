@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import { App as NativeApp } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { App } from "./App";
+import { server } from "./lib/api";
+import { HouseholdProvider } from "./lib/household";
 import { I18nProvider } from "./lib/i18n";
 import "./styles.css";
 
@@ -14,8 +16,10 @@ if (Capacitor.getPlatform() === "android") {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <I18nProvider>
-      <App />
-    </I18nProvider>
+    <HouseholdProvider base={server.load()}>
+      <I18nProvider>
+        <App />
+      </I18nProvider>
+    </HouseholdProvider>
   </StrictMode>,
 );

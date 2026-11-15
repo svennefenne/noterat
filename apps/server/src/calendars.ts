@@ -18,7 +18,7 @@ import type { Sync } from "./sync";
 
 const HOUR = 3_600_000;
 
-export function calendarRoutes(app: Hono<Env>, o: { db: DB; sync: Sync; publicUrl: string; fetchPage?: FetchPage; every?: number }) {
+export function calendarRoutes(app: Hono<Env>, o: { db: DB; sync: Sync; publicUrl: string; fetchPage?: FetchPage; every?: number; timeZone?: () => string }) {
   const { db, sync } = o;
   const fetchPage = o.fetchPage ?? fetchPublic;
   const auth = signedIn(db);
@@ -34,7 +34,7 @@ export function calendarRoutes(app: Hono<Env>, o: { db: DB; sync: Sync; publicUr
     db.prepare("insert into subscriptions (object_id, url, refreshed_at) values (?, ?, ?) on conflict(object_id) do update set url = excluded.url, refreshed_at = excluded.refreshed_at").run(objectId, url, t);
     try {
       const page = await fetchPage(url, { maxBytes: 20 * 1024 * 1024, accept: "text/calendar,*/*;q=0.5" });
-      const { name, events } = readIcs(decodePage(page));
+      const { name, events } = readIcs(decodePage(page), { tz: o.timeZone?.() });
       await sync.changeObject("calendar", objectId, (d) => {
         replaceEvents(d, events, { refreshedAt: t });
         if (!readCalendar(d).title && name) setCalendarMeta(d, { title: name });
@@ -108,7 +108,7 @@ export function calendarRoutes(app: Hono<Env>, o: { db: DB; sync: Sync; publicUr
     });
     c.header("Content-Type", "text/calendar; charset=utf-8");
     c.header("Cache-Control", "private, max-age=300");
-    return c.body(writeIcs(calendars, { name: `Noterat – ${user.display_name}` }));
+    return c.body(writeIcs(calendars, { name: `Noterat – ${user.display_name}`, tz: o.timeZone?.() }));
   });
 
   return { refresh, stop: () => clearInterval(timer) };

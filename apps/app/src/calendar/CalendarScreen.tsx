@@ -3,6 +3,7 @@ import { CalendarPlus, ChevronLeft, ChevronRight, Eye, EyeOff, Link2, MoreVertic
 import type * as Y from "yjs";
 import { CALENDAR_COLORS, initCalendar, occurrences, readCalendar, wallOf, type CalendarView, type MemberRole, type Occurrence } from "@noterat/core";
 import { ApiError } from "../lib/api";
+import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { canReadPhone, phoneAccess, phoneCalendars, phoneEvents, type PhoneCalendar } from "../lib/phoneCalendars";
 import { useDocsValues, useHomeItems, useSession, useSyncState } from "../lib/sync-react";
@@ -24,7 +25,6 @@ const addDays = (day: string, n: number) => {
   d.setDate(d.getDate() + n);
   return wallOf(d, true);
 };
-export const timeOf = (s: string) => s.slice(11, 16);
 
 /**
  * The calendar (decision 10): a month, every calendar this person has (their own, shared ones such as
@@ -32,6 +32,8 @@ export const timeOf = (s: string) => s.slice(11, 16);
  */
 export function CalendarScreen() {
   const { t } = useI18n();
+  const dates = useDates();
+  const timeOf = dates.time;
   const { sync, user } = useSession();
   const { homeLoaded } = useSyncState();
   const items = useHomeItems().filter(([, i]) => i.type === "calendar");
@@ -52,8 +54,8 @@ export function CalendarScreen() {
 
   // the month on screen, with a week either side
   const first = `${month}-01`;
-  // (weeks start on Monday, in Swedish and in British English alike)
-  const lead = (new Date(`${first}T12:00:00`).getDay() + 6) % 7;
+  // (weeks start on the household's first day: Monday, or Sunday)
+  const lead = dates.weekIndex(new Date(`${first}T12:00:00`));
   const gridStart = addDays(first, -lead);
   const gridEnd = addDays(gridStart, 41);
 
@@ -104,7 +106,7 @@ export function CalendarScreen() {
     d.setMonth(d.getMonth() + n);
     setMonth(wallOf(d, true).slice(0, 7));
   };
-  const weekdays = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(t("locale"), { weekday: "short" }));
+  const weekdays = dates.weekdays("short");
   const cells = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
   const dayList = onDay(picked);
 
@@ -125,7 +127,7 @@ export function CalendarScreen() {
               <button type="button" className="icon-button" onClick={() => shift(-1)} aria-label={t("journal.prevMonth")}>
                 <ChevronLeft aria-hidden size={20} />
               </button>
-              <h2>{new Date(`${first}T12:00:00`).toLocaleDateString(t("locale"), { month: "long", year: "numeric" })}</h2>
+              <h2>{dates.month(first)}</h2>
               <button type="button" className="icon-button" onClick={() => shift(1)} aria-label={t("journal.nextMonth")}>
                 <ChevronRight aria-hidden size={20} />
               </button>
@@ -156,7 +158,7 @@ export function CalendarScreen() {
                     aria-pressed={day === picked}
                     onClick={() => setPicked(day)}
                     onDoubleClick={() => newEvent(day)}
-                    aria-label={`${new Date(`${day}T12:00:00`).toLocaleDateString(t("locale"), { weekday: "long", day: "numeric", month: "long" })}${list.length ? `, ${list.length}` : ""}`}
+                    aria-label={`${dates.day(day, { weekday: true, long: true })}${list.length ? `, ${list.length}` : ""}`}
                   >
                     <span className="month-num">{Number(day.slice(8))}</span>
                     {list.slice(0, 3).map((o) => (
@@ -174,7 +176,7 @@ export function CalendarScreen() {
 
           <aside className="calendar-side">
             <section className="day-agenda" aria-label={t("calendar.day")}>
-              <h3>{new Date(`${picked}T12:00:00`).toLocaleDateString(t("locale"), { weekday: "long", day: "numeric", month: "long" })}</h3>
+              <h3>{dates.day(picked, { weekday: true, long: true })}</h3>
               {dayList.length === 0 && <p className="muted small-text">{t("calendar.nothing")}</p>}
               <ul className="agenda">
                 {dayList.map((o) => {

@@ -50,5 +50,7 @@ what they need to pay it.
 - Nobody needs an account to be in a split or to get the summary, and nothing about them leaves the
   household's server except the mail itself.
 - Without a mail server the split still works, and each person's PDF can be shared from the phone.
-- Swish's link and QR formats for private numbers aren't documented by Swish; both are checked with a real
-  phone, and a change on Swish's side means changing two functions in `split.ts`.
+- Swish's link and QR formats for private numbers aren't documented by Swish; both were checked with a
+  real phone, and a change on Swish's side means changing two functions in `split.ts`.
+- A household that doesn't use Swish turns it off on the admin page (decision 14): no numbers, codes or
+  links, just who pays whom.

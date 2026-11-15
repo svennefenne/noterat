@@ -28,6 +28,11 @@ export const signedIn = (db: DB) =>
     await next();
   });
 
+/** Only for an admin (decision 14): turned down otherwise. */
+export function requireAdmin(user: { role: string }) {
+  if (user.role !== "admin") throw new Fail("forbidden", 403);
+}
+
 /** The request's JSON body, which has to be an object. */
 export async function readBody(c: Context): Promise<Record<string, unknown>> {
   const body: unknown = await c.req.json().catch(() => null);

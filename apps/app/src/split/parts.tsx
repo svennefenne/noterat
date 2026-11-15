@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Check, FileText, Send, Undo2 } from "lucide-react";
 import type * as Y from "yjs";
 import { addPayment, balances, formatAmount, removePayment, settle, swishNumber, validEmail, wallOf, type SplitView } from "@noterat/core";
+import { useHousehold } from "../lib/household";
+import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { saveOrShare } from "../lib/save";
 import { useSession, useSyncState } from "../lib/sync-react";
@@ -12,7 +14,9 @@ const first = (name: string) => name.split(" ")[0] || name;
 /** Who pays whom to settle it all, and what has been paid since (which can be undone). */
 export function SettleList({ doc, view, readOnly }: { doc: Y.Doc; view: SplitView; readOnly: boolean }) {
   const { t, lang } = useI18n();
+  const dates = useDates();
   const transfers = settle(view);
+  const swish = useHousehold().household.money.swish;
   const name = (id: string) => view.people.find((p) => p.id === id)?.name ?? "?";
   const today = wallOf(new Date(), true).slice(0, 10);
   return (
@@ -29,7 +33,7 @@ export function SettleList({ doc, view, readOnly }: { doc: Y.Doc; view: SplitVie
                   <strong className="split-person-name">{name(tr.from)}</strong>
                   <span className="muted"> {t("split.paysTo")} </span>
                   <strong className="split-person-name">{name(tr.to)}</strong>
-                  {payee && !swishNumber(payee.phone) && <span className="split-warn">{t("split.noSwish", { name: first(payee.name) })}</span>}
+                  {swish && payee && !swishNumber(payee.phone) && <span className="split-warn">{t("split.noSwish", { name: first(payee.name) })}</span>}
                 </span>
                 <span className="split-transfer-amount">{formatAmount(tr.amount, lang)} kr</span>
                 {!readOnly && (
@@ -54,7 +58,7 @@ export function SettleList({ doc, view, readOnly }: { doc: Y.Doc; view: SplitVie
               <li key={p.id}>
                 <span>
                   {name(p.from)} <span className="muted">{t("split.paidTo")}</span> {name(p.to)}
-                  {p.date && <span className="muted"> · {new Date(`${p.date}T12:00:00`).toLocaleDateString(t("locale"), { day: "numeric", month: "short" }).replace(/\.$/, "")}</span>}
+                  {p.date && <span className="muted"> · {dates.day(p.date)}</span>}
                 </span>
                 <span className="split-transfer-amount muted">{formatAmount(p.amount, lang)} kr</span>
                 {!readOnly && (
@@ -75,6 +79,7 @@ export function SettleList({ doc, view, readOnly }: { doc: Y.Doc; view: SplitVie
 export function PdfButton({ view, personId, label }: { view: SplitView; personId: string; label?: string }) {
   const { t, lang } = useI18n();
   const { user } = useSession();
+  const { household } = useHousehold();
   const [busy, setBusy] = useState(false);
   return (
     <button
@@ -85,8 +90,9 @@ export function PdfButton({ view, personId, label }: { view: SplitView; personId
         setBusy(true);
         try {
           const { splitPdf, splitMail } = await import("@noterat/core/letter");
-          const bytes = await splitPdf(view, personId, { lang, by: user.displayName });
-          const { filename } = splitMail(view, personId, { lang, by: user.displayName });
+          const letter = { lang, by: user.displayName, dates: household.locale, swish: household.money.swish };
+          const bytes = await splitPdf(view, personId, letter);
+          const { filename } = splitMail(view, personId, letter);
           await saveOrShare(new Blob([bytes as BlobPart], { type: "application/pdf" }), filename, view.title);
         } finally {
           setBusy(false);
@@ -104,6 +110,7 @@ export function PdfButton({ view, personId, label }: { view: SplitView; personId
  */
 export function SendForm({ id, view, onDone, onEditPerson }: { id: string; view: SplitView; onDone: () => void; onEditPerson: (personId: string) => void }) {
   const { t, lang, errorText } = useI18n();
+  const dates = useDates();
   const { api } = useSession();
   const { connection, waiting } = useSyncState();
   const [mailReady, setMailReady] = useState<boolean | null>(null);
@@ -177,7 +184,7 @@ export function SendForm({ id, view, onDone, onEditPerson }: { id: string; view:
           );
         })}
       </ul>
-      {last && !results && <p className="muted small-text">{t("split.send.last", { when: new Date(last.at).toLocaleString(t("locale"), { dateStyle: "medium", timeStyle: "short" }), by: last.by, n: last.to.length })}</p>}
+      {last && !results && <p className="muted small-text">{t("split.send.last", { when: dates.moment(last.at), by: last.by, n: last.to.length })}</p>}
       {mailReady === false && <Problem>{t("error.mail_off")}</Problem>}
       {!synced && <p className="notice small-text">{t(connection === "online" ? "split.send.waiting" : "split.send.offline")}</p>}
       {problem && <Problem>{problem}</Problem>}

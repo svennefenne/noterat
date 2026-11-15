@@ -204,6 +204,25 @@ export function createSync(db: DB, o: { debounce?: number; maxDebounce?: number 
       }
     },
 
+    /** A message to every app that's connected (on its home document): the household's settings changed. */
+    tellAll(payload: string) {
+      for (const [name, doc] of hocuspocus.documents) if (parseDocName(name)?.kind === "home") doc.broadcastStateless(payload);
+    },
+
+    /** A message to someone's apps that are connected: their account changed. */
+    tell(userId: number, payload: string) {
+      hocuspocus.documents.get(homeDocName(userId))?.broadcastStateless(payload);
+    },
+
+    /**
+     * Someone's sessions ended (a new password, logged out everywhere, removed): every connection of theirs
+     * is closed, with "unauthorized" as the reason, and their apps go back to logging in.
+     */
+    closeUser(userId: number) {
+      for (const doc of hocuspocus.documents.values())
+        for (const connection of [...doc.connections.keys()]) if ((connection.context as SyncContext | undefined)?.user?.id === userId) closeConnection(connection, "unauthorized");
+    },
+
     /** A thing was deleted: everyone with it open is closed off, with "deleted" as the reason. */
     closeAll(type: ObjectType, id: string) {
       for (const connection of openConnections(type, id)) closeConnection(connection, "deleted");

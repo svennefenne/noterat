@@ -27,6 +27,7 @@ import {
   type Category,
   type MemberRole,
 } from "@noterat/core";
+import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { useDocValue, useSession } from "../lib/sync-react";
 import { TitleInput } from "../notes/NoteScreen";
@@ -35,7 +36,6 @@ import { ShareDialog } from "../things/ShareDialog";
 import { Dialog, Menu, MenuItem, useStored } from "../ui";
 import { ImportDialog } from "./ImportDialog";
 
-const monthName = (m: string, locale: string) => new Date(`${m}-15T12:00:00`).toLocaleDateString(locale, { month: "long", year: "numeric" });
 const shift = (m: string, n: number) => {
   const d = new Date(`${m}-15T12:00:00`);
   d.setMonth(d.getMonth() + n);
@@ -53,6 +53,7 @@ export function BudgetScreen({ id }: { id: string }) {
 /** A budget's page: the month (planned, spent, what's left), its transactions, recurring items and goals, and a report. */
 function BudgetPage({ id, role }: { id: string; role: MemberRole }) {
   const { t, lang } = useI18n();
+  const dates = useDates();
   const { sync } = useSession();
   const name = objectDocName("budget", id);
   const doc = sync.doc(name);
@@ -108,7 +109,7 @@ function BudgetPage({ id, role }: { id: string; role: MemberRole }) {
         <button type="button" className="icon-button" onClick={() => setMonth(shift(month, -1))} aria-label={t("journal.prevMonth")}>
           <ChevronLeft aria-hidden size={20} />
         </button>
-        <h2>{monthName(month, t("locale"))}</h2>
+        <h2>{dates.month(month)}</h2>
         <button type="button" className="icon-button" onClick={() => setMonth(shift(month, 1))} aria-label={t("journal.nextMonth")}>
           <ChevronRight aria-hidden size={20} />
         </button>

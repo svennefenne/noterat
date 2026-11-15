@@ -34,7 +34,7 @@ export async function startServer(
   const db = openDb(":memory:");
   const sync = createSync(db, { debounce: 20, maxDebounce: 100 });
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "noterat-test-"));
-  const app = createApp({ db, sync, version: "test", webDir: null, trustedIpHeader: "", publicUrl: "", dataDir, workerToken: o.workerToken, workerWait: o.workerWait ?? 300, workerLease: o.workerLease, fetchPage: o.fetchPage, pushFetch: o.pushFetch, mailTransport: o.mailTransport, mailEnv: o.mailEnv ?? {}, bundledDir: o.bundledDir ?? null, build: 30 });
+  const app = createApp({ db, sync, version: "test", webDir: null, trustedIpHeader: "", publicUrl: "", dataDir, workerToken: o.workerToken, workerWait: o.workerWait ?? 300, workerLease: o.workerLease, fetchPage: o.fetchPage, pushFetch: o.pushFetch, mailTransport: o.mailTransport, mailEnv: o.mailEnv ?? {}, bundledDir: o.bundledDir ?? null, build: 30, timeZone: "Europe/Stockholm" });
   const server = await new Promise<Server>((resolve) => {
     const s = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" }, () => resolve(s as Server));
   });
@@ -54,6 +54,13 @@ export async function startServer(
 export async function account(db: DB, username: string) {
   const user = createUser(db, { username, displayName: username[0]!.toUpperCase() + username.slice(1), passwordHash: await hashPassword("a long enough password"), role: "member" });
   return { user, token: createSession(db, user.id, "test") };
+}
+
+/** an account that's an admin */
+export async function admin(db: DB, username: string) {
+  const a = await account(db, username);
+  db.prepare("update users set role = 'admin' where id = ?").run(a.user.id);
+  return { ...a, user: { ...a.user, role: "admin" as const } };
 }
 
 export async function call<T>(base: string, method: string, path: string, token?: string, body?: unknown): Promise<{ status: number; json: T }> {

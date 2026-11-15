@@ -1,5 +1,6 @@
 import { PDFDocument, PDFString, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import { encode } from "uqr";
+import { DATE_RULES, formatDay, type DateRules } from "./dates";
 import { balances, formatPhone, settle, sharesOf, splitDates, splitTotal, swishLink, swishNumber, swishQrText, type SplitView, type Transfer } from "./split";
 
 /**
@@ -11,6 +12,18 @@ import { balances, formatPhone, settle, sharesOf, splitDates, splitTotal, swishL
  */
 
 export type LetterLang = "sv" | "en";
+
+/**
+ * How a letter is written: its language, who sent it, how days are written (the household's), and
+ * whether the household uses Swish (decision 14; without it, no numbers, codes or links: just who pays whom).
+ */
+export interface LetterOptions {
+  lang: LetterLang;
+  by: string;
+  now?: Date;
+  dates?: Partial<DateRules>;
+  swish?: boolean;
+}
 
 const T = {
   sv: {
@@ -25,6 +38,7 @@ const T = {
     scan: "Skanna koden med Swish-appen.",
     tap: "På telefonen: tryck här för att öppna Swish",
     noSwish: (name: string) => `${name} har inget Swish-nummer i delningen. Fråga hur du ska betala.`,
+    askHow: (name: string) => `Fråga ${name} hur du ska betala.`,
     expenses: "Alla utgifter",
     date: "Datum",
     what: "Vad",
@@ -66,6 +80,7 @@ const T = {
     scan: "Scan the code with the Swish app.",
     tap: "On your phone: tap here to open Swish",
     noSwish: (name: string) => `${name} has no Swish number in the split. Ask how to pay.`,
+    askHow: (name: string) => `Ask ${name} how to pay.`,
     expenses: "All expenses",
     date: "Date",
     what: "What",
@@ -103,17 +118,21 @@ export function kronor(ore: number, lang: LetterLang = "sv"): string {
   return (ore < 0 ? "-" : "") + s.replace(/\u202f/g, "\u00a0");
 }
 
-function day(date: string, lang: LetterLang, year = true): string {
+/** a day as the household writes it ("14 feb 2027", "2027-02-14"; without the year, "14 feb", "02-14") */
+function day(date: string, lang: LetterLang, year = true, dates?: Partial<DateRules>): string {
   if (!date) return "";
-  return new Intl.DateTimeFormat(lang === "sv" ? "sv-SE" : "en-GB", { day: "numeric", month: "short", ...(year ? { year: "numeric" } : {}) }).format(new Date(`${date}T12:00:00`)).replace(/\.(?=\s|$)/g, "");
+  const r = { ...DATE_RULES, ...dates, lang };
+  if (r.dateStyle === "iso") return year ? date.slice(0, 10) : date.slice(5, 10);
+  return formatDay(date, r, { year });
 }
 
-/** "14–16 feb 2027", "30 jan – 2 feb 2027", or one day. */
-export function dateSpan(from: string, to: string, lang: LetterLang = "sv"): string {
+/** "14–16 feb 2027", "30 jan – 2 feb 2027", or one day ("2027-02-14 – 2027-02-16", written as ISO). */
+export function dateSpan(from: string, to: string, lang: LetterLang = "sv", dates?: Partial<DateRules>): string {
   if (!from) return "";
-  if (from === to) return day(from, lang);
-  if (from.slice(0, 7) === to.slice(0, 7)) return `${Number(from.slice(8))}–${day(to, lang)}`;
-  return `${day(from, lang, from.slice(0, 4) !== to.slice(0, 4))} – ${day(to, lang)}`;
+  if (from === to) return day(from, lang, true, dates);
+  if (dates?.dateStyle === "iso") return `${from} – ${to}`;
+  if (from.slice(0, 7) === to.slice(0, 7)) return `${Number(from.slice(8))}–${day(to, lang, true, dates)}`;
+  return `${day(from, lang, from.slice(0, 4) !== to.slice(0, 4), dates)} – ${day(to, lang, true, dates)}`;
 }
 
 /** One person's side of it: what they pay to whom, what they get from whom. */
@@ -131,7 +150,7 @@ const nameOf = (v: SplitView, id: string) => v.people.find((p) => p.id === id)?.
 const ENTITIES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ENTITIES[c]!);
 
-export function splitMail(v: SplitView, personId: string, o: { lang: LetterLang; by: string; now?: Date }) {
+export function splitMail(v: SplitView, personId: string, o: LetterOptions) {
   const t = T[o.lang];
   const me = v.people.find((p) => p.id === personId)!;
   const part = personPart(v, personId);
@@ -145,7 +164,7 @@ export function splitMail(v: SplitView, personId: string, o: { lang: LetterLang;
     html.push(`<p><strong>${esc(t.youPay(kronor(part.payTotal, o.lang)))}</strong></p><ul>`);
     for (const tr of part.pay) {
       const p = payee(tr)!;
-      const number = swishNumber(p.phone);
+      const number = o.swish === false ? "" : swishNumber(p.phone);
       const link = number ? swishLink({ to: number, amount: tr.amount, message: title }) : "";
       lines.push(`- ${t.payLine(kronor(tr.amount, o.lang), p.name)}${number ? `, ${t.swish(formatPhone(number))}` : ""}${link ? `\n  ${t.openSwish}: ${link}` : ""}`);
       html.push(
@@ -204,7 +223,7 @@ const W = 595.28;
 const H = 841.89;
 const M = 48;
 
-export async function splitPdf(v: SplitView, personId: string, o: { lang: LetterLang; by: string; now?: Date }): Promise<Uint8Array> {
+export async function splitPdf(v: SplitView, personId: string, o: LetterOptions): Promise<Uint8Array> {
   const t = T[o.lang];
   const k = (n: number) => kronor(n, o.lang);
   const me = v.people.find((p) => p.id === personId)!;
@@ -260,15 +279,16 @@ export async function splitPdf(v: SplitView, personId: string, o: { lang: Letter
   write(title, M, 24, bold);
   y -= 20;
   const dates = splitDates(v);
-  write([t.summaryFor(me.name), dateSpan(dates.from, dates.to, o.lang)].filter(Boolean).join("  •  "), M, 11, regular, C.muted);
+  write([t.summaryFor(me.name), dateSpan(dates.from, dates.to, o.lang, o.dates)].filter(Boolean).join("  •  "), M, 11, regular, C.muted);
   y -= 14;
-  write(t.sentBy(day(today, o.lang), o.by), M, 9, regular, C.muted);
+  write(t.sentBy(day(today, o.lang, true, o.dates), o.by), M, 9, regular, C.muted);
   y -= 22;
 
   // your part
   const tone = part.payTotal > 0 ? { bg: C.dangerSoft, fg: C.danger } : part.getTotal > 0 ? { bg: C.accentSoft, fg: C.accent } : { bg: C.paper, fg: C.text };
   const rows = part.payTotal > 0 ? part.pay : part.get;
-  const rowH = part.payTotal > 0 ? 124 : 22;
+  // (a payment with its Swish code is tall; without Swish, two lines)
+  const rowH = part.payTotal > 0 ? (o.swish === false ? 52 : 124) : 22;
   const boxH = 50 + (rows.length ? rows.length * rowH : 0);
   room(boxH + 10);
   page.drawRectangle({ x: M, y: y - boxH, width: W - 2 * M, height: boxH, color: tone.bg });
@@ -278,7 +298,7 @@ export async function splitPdf(v: SplitView, personId: string, o: { lang: Letter
   for (const tr of rows) {
     if (part.payTotal > 0) {
       const p = v.people.find((x) => x.id === tr.to)!;
-      const number = swishNumber(p.phone);
+      const number = o.swish === false ? "" : swishNumber(p.phone);
       const top = y - 4;
       if (number) {
         qr(swishQrText({ to: number, amount: tr.amount, message: title }), M + 22, top, 96);
@@ -302,7 +322,7 @@ export async function splitPdf(v: SplitView, personId: string, o: { lang: Letter
         write(t.to(p.name), M + 16, 12, bold);
         right(`${k(tr.amount)} kr`, W - M - 16, 12, bold, C.danger);
         y -= 16;
-        write(t.noSwish(p.name), M + 16, 10.5, regular, C.muted);
+        write(o.swish === false ? t.askHow(p.name) : t.noSwish(p.name), M + 16, 10.5, regular, C.muted);
         y = top - rowH + 4;
       }
     } else {
@@ -341,7 +361,7 @@ export async function splitPdf(v: SplitView, personId: string, o: { lang: Letter
     }
     y -= 16;
     const mine = sharesOf(e, order).get(personId) ?? 0;
-    write(day(e.date, o.lang, false), col.date, 10);
+    write(day(e.date, o.lang, false, o.dates), col.date, 10);
     write(fit(e.text || "—", col.paidBy - col.what - 10, 10), col.what, 10);
     write(fit(nameOf(v, e.paidBy), col.amount - col.paidBy - 70, 10), col.paidBy, 10);
     right(k(e.amount), col.amount, 10);
@@ -402,7 +422,7 @@ export async function splitPdf(v: SplitView, personId: string, o: { lang: Letter
       const color = quiet ? C.muted : C.text;
       write(fit(nameOf(v, tr.from), tc.to - tc.from - 12, 10.5, font), tc.from, 10.5, font, color);
       write(fit(nameOf(v, tr.to), tc.date - tc.to - 12, 10.5, font), tc.to, 10.5, font, color);
-      if (tr.date) write(day(tr.date, o.lang, false), tc.date, 10.5, regular, C.muted);
+      if (tr.date) write(day(tr.date, o.lang, false, o.dates), tc.date, 10.5, regular, C.muted);
       right(`${k(tr.amount)} kr`, tc.amount, 10.5, font, color);
       y -= 6;
       rule();

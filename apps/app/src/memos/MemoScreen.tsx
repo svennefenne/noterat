@@ -3,6 +3,7 @@ import { ArrowRightLeft, MoreVertical, Share2 } from "lucide-react";
 import type * as Y from "yjs";
 import { memoText, memoTitle, objectDocName, readMemo, setMemoTitle, type MemberRole } from "@noterat/core";
 import { ApiError } from "../lib/api";
+import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { useDocValue, useSession, useSyncState, useUploads } from "../lib/sync-react";
 import { MarkdownEditor } from "../notes/LazyEditor";
@@ -27,6 +28,7 @@ export function MemoScreen({ id }: { id: string }) {
 
 function MemoPage({ id, role }: { id: string; role: MemberRole }) {
   const { t, errorText } = useI18n();
+  const dates = useDates();
   const { sync, api } = useSession();
   useSyncState();
   const name = objectDocName("memo", id);
@@ -40,7 +42,7 @@ function MemoPage({ id, role }: { id: string; role: MemberRole }) {
   const readOnly = role === "viewer";
   const awareness = sync.awareness(name);
   usePresence(awareness);
-  const title = memoTitle(memo, text) || when(memo.createdAt, t);
+  const title = memoTitle(memo, text) || when(memo.createdAt, t, dates);
   const status = memo.transcription?.status;
   const uploading = !!(memo.audio && uploads[memo.audio.hash]);
 
@@ -85,7 +87,7 @@ function MemoPage({ id, role }: { id: string; role: MemberRole }) {
           </div>
         </div>
         <p className="memo-meta muted small-text">
-          {when(memo.createdAt, t)}
+          {when(memo.createdAt, t, dates)}
           {memo.audio && ` · ${clock(memo.audio.duration)}`}
         </p>
         {problem && <Problem>{problem}</Problem>}

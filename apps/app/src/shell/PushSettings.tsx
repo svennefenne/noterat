@@ -101,7 +101,7 @@ function JsonFile({ label, value, onChange }: { label: string; value: string; on
  * The admin's part: the household's Firebase project, two files from its console. google-services.json
  * is handed to the phones; the service account's key stays on the server and is never shown again.
  */
-export function PushAdminForm({ onDone }: { onDone: () => void }) {
+export function PushAdminForm({ onDone }: { onDone?: () => void }) {
   const { t, errorText } = useI18n();
   const { api } = useSession();
   const [state, setState] = useState<AdminPush | null>(null);
@@ -159,9 +159,11 @@ export function PushAdminForm({ onDone }: { onDone: () => void }) {
             {t("push.admin.remove")}
           </button>
         )}
-        <button type="button" className="secondary" onClick={onDone}>
-          {t("budget.done")}
-        </button>
+        {onDone && (
+          <button type="button" className="secondary" onClick={onDone}>
+            {t("budget.done")}
+          </button>
+        )}
         <button type="submit" className="primary" disabled={busy || !googleServices || !serviceAccount}>
           {t("note.save")}
         </button>

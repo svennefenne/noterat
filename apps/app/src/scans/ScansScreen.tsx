@@ -4,6 +4,7 @@ import { Link, useLocation } from "wouter";
 import type * as Y from "yjs";
 import { formatAmount, readScan, scanText, scanTitle, type ScanKind, type ScanView } from "@noterat/core";
 import { useLinkedAction } from "../lib/deepLinks";
+import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { canScanOnPhone, photosAsPages, scanOnPhone, type ScannedPage } from "../lib/scanner";
 import { useDocsValues, useHomeItems, useSession, useSyncState } from "../lib/sync-react";
@@ -119,6 +120,7 @@ export function ScansScreen() {
 
 function ScanCard({ id, scan, text, shared }: { id: string; scan: ScanView; text: string; shared: boolean }) {
   const { t, lang } = useI18n();
+  const dates = useDates();
   const r = scan.receipt;
   return (
     <li>
@@ -128,7 +130,7 @@ function ScanCard({ id, scan, text, shared }: { id: string; scan: ScanView; text
           <span className="card-title">{scanTitle(scan, text) || t(`scan.kind.${scan.kind}`)}</span>
           <span className="card-meta">
             {scan.kind === "receipt" && r?.total !== undefined && <strong>{formatAmount(r.total, lang)} kr</strong>}
-            <span>{scan.kind === "receipt" && r?.date ? r.date : when(scan.createdAt, t)}</span>
+            <span>{scan.kind === "receipt" && r?.date ? dates.day(r.date) : when(scan.createdAt, t, dates)}</span>
             {scan.pages.length > 1 && <span>{t("scan.pages", { n: scan.pages.length })}</span>}
             <ScanStatus scan={scan} />
             {shared && (

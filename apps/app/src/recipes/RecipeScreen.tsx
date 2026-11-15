@@ -21,6 +21,7 @@ import {
   type MemberRole,
 } from "@noterat/core";
 import { ApiError, isNative } from "../lib/api";
+import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { shrinkPhoto } from "../lib/images";
 import { recipePdf } from "../lib/recipePdf";
@@ -47,6 +48,7 @@ export function RecipeScreen({ id }: { id: string }) {
 
 function RecipePage({ id, role }: { id: string; role: MemberRole }) {
   const { t, lang, errorText } = useI18n();
+  const dates = useDates();
   const { sync, api } = useSession();
   const { connection } = useSyncState();
   const name = objectDocName("recipe", id);
@@ -117,7 +119,7 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
         ingredients: lines,
         steps,
         photo: first ? { bytes: new Uint8Array(await first.arrayBuffer()), type: first.type } : undefined,
-        footer: `Noterat · ${new Date().toLocaleDateString(t("locale"))}`,
+        footer: `Noterat · ${dates.day(new Date(), { year: true })}`,
       });
       await saveOrShare(blob, `${title}.pdf`, title);
     } catch {

@@ -12,6 +12,8 @@ import {
   validEmail,
   type MemberRole,
 } from "@noterat/core";
+import { useHousehold } from "../lib/household";
+import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { useDocValue, useSession } from "../lib/sync-react";
 import { TitleInput } from "../notes/NoteScreen";
@@ -37,6 +39,8 @@ export function SplitScreen({ id }: { id: string }) {
 function SplitPage({ id, role }: { id: string; role: MemberRole }) {
   const { t, lang } = useI18n();
   const { sync, user } = useSession();
+  const swish = useHousehold().household.money.swish;
+  const dates = useDates();
   const name = objectDocName("split", id);
   const doc = sync.doc(name);
   const view = useDocValue(doc, readSplit);
@@ -57,12 +61,7 @@ function SplitPage({ id, role }: { id: string; role: MemberRole }) {
   const counts = new Map<string, number>();
   for (const e of view.expenses) if (e.date) counts.set(e.date.slice(0, 4), (counts.get(e.date.slice(0, 4)) ?? 0) + 1);
   const usual = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
-  const day = (date: string) =>
-    date
-      ? new Date(`${date}T12:00:00`)
-          .toLocaleDateString(t("locale"), { day: "numeric", month: "short", ...(date.slice(0, 4) !== usual ? { year: "numeric" } : {}) })
-          .replace(/\.(?=\s|$)/g, "")
-      : "";
+  const day = (date: string) => (date ? dates.day(date, { year: date.slice(0, 4) !== usual }) : "");
 
   return (
     <div className="screen split-screen">
@@ -97,7 +96,7 @@ function SplitPage({ id, role }: { id: string; role: MemberRole }) {
         {bs.map((b) => {
           const p = b.person;
           const me = p.userId === user.id;
-          const number = swishNumber(p.phone);
+          const number = swish ? swishNumber(p.phone) : "";
           const sub = me ? t("split.you") : number ? formatPhone(number) : p.email || t("split.noDetails");
           const tone = b.net > 0 ? "plus" : b.net < 0 ? "minus" : "even";
           return (
@@ -112,10 +111,10 @@ function SplitPage({ id, role }: { id: string; role: MemberRole }) {
                     <small>{sub}</small>
                   </span>
                 </span>
-                {(!validEmail(p.email) || (b.net > 0 && !number)) && (
+                {(!validEmail(p.email) || (swish && b.net > 0 && !number)) && (
                   <span className="split-flags">
                     {!validEmail(p.email) && <span className="split-flag">{t("split.flag.noEmail")}</span>}
-                    {b.net > 0 && !number && <span className="split-flag">{t("split.flag.noSwish")}</span>}
+                    {swish && b.net > 0 && !number && <span className="split-flag">{t("split.flag.noSwish")}</span>}
                   </span>
                 )}
                 {/* (pushed to the bottom together, so the figures line up across a row whatever the name) */}

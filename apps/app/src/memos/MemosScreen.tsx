@@ -5,6 +5,7 @@ import type * as Y from "yjs";
 import { initMemo, memoText, memoTitle, readMemo, type MemoView } from "@noterat/core";
 import { useLinkedAction } from "../lib/deepLinks";
 import { hashOf } from "../lib/files";
+import { useDates, type Dates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { useDocsValues, useHomeItems, useSession, useSyncState } from "../lib/sync-react";
 import { clock, MemoStatus } from "./parts";
@@ -45,7 +46,8 @@ export function MemosScreen() {
 
 function MemoCard({ id, memo, text, shared }: { id: string; memo: MemoView; text: string; shared: boolean }) {
   const { t } = useI18n();
-  const title = memoTitle(memo, text) || when(memo.createdAt, t);
+  const dates = useDates();
+  const title = memoTitle(memo, text) || when(memo.createdAt, t, dates);
   const rest = text.trim() && memo.title ? text.trim() : text.trim().split("\n").slice(1).join(" ");
   return (
     <li>
@@ -54,7 +56,7 @@ function MemoCard({ id, memo, text, shared }: { id: string; memo: MemoView; text
         {rest && <span className="card-preview">{rest.length > 140 ? `${rest.slice(0, 139)}…` : rest}</span>}
         <span className="card-meta">
           {memo.audio && <span>{clock(memo.audio.duration)}</span>}
-          {(memoTitle(memo, text) || shared) && <span>{when(memo.createdAt, t)}</span>}
+          {(memoTitle(memo, text) || shared) && <span>{when(memo.createdAt, t, dates)}</span>}
           <MemoStatus memo={memo} />
           {shared && (
             <span className="badge">
@@ -67,11 +69,11 @@ function MemoCard({ id, memo, text, shared }: { id: string; memo: MemoView; text
   );
 }
 
-/** "Today 14:05", "12 Nov 09:30" */
-export function when(at: number, t: ReturnType<typeof useI18n>["t"]) {
+/** "Idag 14:05", "12 nov 09:30" (as the household writes days and times) */
+export function when(at: number, t: ReturnType<typeof useI18n>["t"], dates: Dates) {
   const d = new Date(at);
-  const time = d.toLocaleTimeString(t("locale"), { hour: "2-digit", minute: "2-digit" });
-  return new Date().toDateString() === d.toDateString() ? t("memo.today", { time }) : `${d.toLocaleDateString(t("locale"), { day: "numeric", month: "short" })} ${time}`;
+  const time = dates.time(d);
+  return new Date().toDateString() === d.toDateString() ? t("memo.today", { time }) : `${dates.day(d)} ${time}`;
 }
 
 /** Recording a memo: made on the device at once; its recording goes to the server when it can. */

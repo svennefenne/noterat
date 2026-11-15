@@ -6,9 +6,11 @@ import { createSession, dummyHash, endSession, hashPassword, LoginThrottle, veri
 import type { DB } from "./db";
 import { fileRoutes, fileStore } from "./files";
 import { Fail, readBody, signedIn, text, type Env } from "./http";
+import { adminRoutes } from "./admin";
 import { appUpdateRoutes } from "./appUpdates";
 import { calendarRoutes } from "./calendars";
 import { createJobs } from "./jobs";
+import { createHousehold, householdRoutes } from "./household";
 import { createMailer, mailRoutes, type MailTransport } from "./mail";
 import { pushRoutes } from "./push";
 import { splitRoutes } from "./splits";
@@ -48,6 +50,8 @@ export interface AppOptions {
   fetchPage?: FetchPage;
   /** (tests: how Google's push endpoints are reached) */
   pushFetch?: typeof fetch;
+  /** the household's time zone until an admin sets one (else the container's TZ) */
+  timeZone?: string;
   /** (tests: where mail goes instead of an SMTP server, and the SMTP_* environment) */
   mailTransport?: MailTransport;
   mailEnv?: NodeJS.ProcessEnv;
@@ -146,11 +150,17 @@ export function createApp(o: AppOptions) {
     return c.body(null, 204);
   });
 
-  const push = pushRoutes(app, { db, fetch: o.pushFetch, notice: (userId, n) => o.sync.notice(userId, n) });
+  // the household's settings and accounts (decision 14): its time zone is what the server goes by
+  const household = createHousehold(db, { timeZone: o.timeZone });
+  const timeZone = () => household.get().locale.timeZone;
+  householdRoutes(app, { db, household, sync: o.sync });
+  adminRoutes(app, { db, sync: o.sync });
+
+  const push = pushRoutes(app, { db, fetch: o.pushFetch, notice: (userId, n) => o.sync.notice(userId, n), timeZone });
   shareRoutes(app, { db, sync: o.sync, publicUrl: o.publicUrl, push });
   const mail = createMailer(db, { transport: o.mailTransport, env: o.mailEnv });
   mailRoutes(app, { db, mail });
-  splitRoutes(app, { db, sync: o.sync, mail });
+  splitRoutes(app, { db, sync: o.sync, mail, household });
 
   const store = fileStore(o.dataDir);
   const recipes = recipeImport({ db, sync: o.sync, store, fetchPage: o.fetchPage });
@@ -173,7 +183,7 @@ export function createApp(o: AppOptions) {
   fileRoutes(app, { db, store, onUploaded: jobs.onUploaded });
   jobs.routes(app);
   recipes.routes(app, jobs);
-  const calendars = calendarRoutes(app, { db, sync: o.sync, publicUrl: o.publicUrl, fetchPage: o.fetchPage });
+  const calendars = calendarRoutes(app, { db, sync: o.sync, publicUrl: o.publicUrl, fetchPage: o.fetchPage, timeZone });
 
   appUpdateRoutes(app, { dataDir: o.dataDir, bundledDir: o.bundledDir });
 
@@ -183,5 +193,5 @@ export function createApp(o: AppOptions) {
 
   if (o.webDir) app.get("*", webFiles(o.webDir));
 
-  return Object.assign(app, { jobs, calendars, push });
+  return Object.assign(app, { jobs, calendars, push, household });
 }

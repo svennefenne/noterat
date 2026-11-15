@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Redirect, Route, Switch } from "wouter";
-import type { User } from "@noterat/core";
+import { ACCOUNT_CHANGED, HOUSEHOLD_CHANGED, type User } from "@noterat/core";
 import { isDesktop } from "../lib/api";
+import { useHousehold } from "../lib/household";
 import { useI18n } from "../lib/i18n";
 import { AppLock } from "../lib/lock";
 import { Sync } from "../lib/sync";
@@ -26,6 +27,7 @@ import { RecipesScreen } from "../recipes/RecipesScreen";
 import { ScanScreen } from "../scans/ScanScreen";
 import { ScansScreen } from "../scans/ScansScreen";
 import { SearchScreen } from "../search/SearchScreen";
+import { AdminScreen } from "../admin/AdminScreen";
 import { preloadEditor } from "../notes/LazyEditor";
 import { Caught } from "../ui";
 import { LinkScreen } from "../screens/LinkScreen";
@@ -37,8 +39,24 @@ import { Shell } from "./Shell";
  * logout: from the menu (the device forgets what it has: asked first if some of it hasn't reached the
  * server); expired: the server said the session has ended.
  */
-export function SignedIn({ base, token, user, onLogout, onExpired }: { base: string; token: string; user: User; onLogout: () => void; onExpired: () => void }) {
+export function SignedIn({
+  base,
+  token,
+  user,
+  onLogout,
+  onExpired,
+  onAccount,
+}: {
+  base: string;
+  token: string;
+  user: User;
+  onLogout: () => void;
+  onExpired: () => void;
+  /** the server says this account changed (its name, its role): asked for again */
+  onAccount: () => void;
+}) {
   const { t } = useI18n();
+  const { refresh } = useHousehold();
   const [made, setMade] = useState<{ sync: Sync; lock: AppLock } | null>(null);
 
   useEffect(() => {
@@ -54,6 +72,16 @@ export function SignedIn({ base, token, user, onLogout, onExpired }: { base: str
       lock.destroy();
     };
   }, [base, token, user.id, onExpired]);
+
+  // what the server says on the home document: the household's settings, or this account, changed
+  useEffect(
+    () =>
+      made?.sync.onMessage((payload) => {
+        if (payload === HOUSEHOLD_CHANGED) refresh();
+        else if (payload === ACCOUNT_CHANGED) onAccount();
+      }),
+    [made, refresh, onAccount],
+  );
 
   if (!made) return null;
   const { sync, lock } = made;
@@ -121,6 +149,7 @@ export function SignedIn({ base, token, user, onLogout, onExpired }: { base: str
           </Route>
           <Route path="/budget/splits/:id">{(p) => <SplitScreen key={p.id} id={p.id} />}</Route>
           <Route path="/budget/:id">{(p) => <BudgetScreen key={p.id} id={p.id} />}</Route>
+          <Route path="/admin/:section?">{(p) => <AdminScreen section={p.section} />}</Route>
           <Route path="/search">
             <SearchScreen />
           </Route>

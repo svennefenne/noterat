@@ -25,6 +25,8 @@ import {
   type SplitMode,
   type SplitView,
 } from "@noterat/core";
+import { useHousehold } from "../lib/household";
+import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { canScanOnPhone, photosAsPages, scanOnPhone, type ScannedPage } from "../lib/scanner";
 import { useDocsValues, useHomeItems, useSession } from "../lib/sync-react";
@@ -36,6 +38,7 @@ import { Problem } from "../ui";
 export function PersonForm({ doc, view, id, onDone }: { doc: Y.Doc; view: SplitView; id: string | null; onDone: () => void }) {
   const { t } = useI18n();
   const { api } = useSession();
+  const swish = useHousehold().household.money.swish;
   const had = view.people.find((p) => p.id === id);
   const [name, setName] = useState(had?.name ?? "");
   const [phone, setPhone] = useState(had ? formatPhone(had.phone) : "");
@@ -91,11 +94,14 @@ export function PersonForm({ doc, view, id, onDone }: { doc: Y.Doc; view: SplitV
         <span>{t("split.person.name")}</span>
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoComplete="off" data-autofocus />
       </label>
-      <label className="field">
-        <span>{t("split.person.phone")}</span>
-        <input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="070-123 45 67" autoComplete="off" />
-        <span className="muted small-text">{t("split.person.phoneHint")}</span>
-      </label>
+      {/* (without Swish, no number to give; one given before stays) */}
+      {swish && (
+        <label className="field">
+          <span>{t("split.person.phone")}</span>
+          <input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="070-123 45 67" autoComplete="off" />
+          <span className="muted small-text">{t("split.person.phoneHint")}</span>
+        </label>
+      )}
       <label className="field">
         <span>{t("split.person.email")}</span>
         <input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="namn@example.com" autoComplete="off" />
@@ -355,6 +361,7 @@ function ReceiptBar({
   onClear: () => void;
 }) {
   const { t, lang } = useI18n();
+  const dates = useDates();
   const { sync } = useSession();
   const keep = useKeepScan();
   const items = useHomeItems().filter(([, i]) => i.type === "scan");
@@ -371,7 +378,7 @@ function ReceiptBar({
     .filter((r): r is ReceiptRow => !!r && r.total !== undefined && !used.has(r.id))
     .sort((a, b) => (b.date || "").localeCompare(a.date || "") || b.at - a.at)
     .slice(0, 12);
-  const day = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(t("locale"), { day: "numeric", month: "short" }).replace(/\.$/, "");
+  const day = (d: string) => dates.day(d);
   const label = (r: { shop: string; date: string; total?: number }) =>
     r.shop || r.date || r.total !== undefined
       ? [r.shop || t("split.receipt.noShop"), r.date && day(r.date), r.total !== undefined && `${formatAmount(r.total, lang)} kr`].filter(Boolean).join(" · ")
