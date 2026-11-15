@@ -1,6 +1,7 @@
 import type * as Y from "yjs";
 import type { ObjectType } from "./docs";
 import { entryBody, entryTitle, readEntry } from "./journal";
+import { readCalendar } from "./calendar";
 import { readList } from "./lists";
 import { formatAmount } from "./receipts";
 import { readRecipe, recipeIngredients, recipeSteps, recipeTitle } from "./recipes";
@@ -59,6 +60,10 @@ export function searchable(type: ObjectType, id: string, doc: Y.Doc): Searchable
       const r = readRecipe(doc);
       const ingredients = recipeIngredients(doc).toString();
       return { id, type, title: recipeTitle(r, ingredients), text: [r.description, ingredients, recipeSteps(doc).toString()].filter(Boolean).join("\n"), tags: r.tags, at: r.createdAt };
+    }
+    case "calendar": {
+      const c = readCalendar(doc);
+      return { id, type, title: c.title, text: c.events.map((e) => [e.start.slice(0, 10), e.title, e.location, e.notes].filter(Boolean).join(" · ")).join("\n"), tags: [], at: 0 };
     }
     case "journal": {
       const e = readEntry(doc);

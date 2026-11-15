@@ -92,6 +92,8 @@ export function signedInApi(base: string, token: string) {
     transcribe: (id: string, hash?: string) => at<void>(`/api/objects/${id}/transcribe`, { method: "POST", body: hash ? { hash } : {} }),
     transcriber: () => at<TranscriberInfo>("/api/transcriber"),
     ocr: (id: string) => at<void>(`/api/objects/${id}/ocr`, { method: "POST" }),
+    refreshCalendar: (id: string) => at<{ events: number }>(`/api/objects/${id}/refresh`, { method: "POST" }),
+    calendarFeed: (fresh = false) => at<{ url: string }>("/api/calendar-feed", { method: fresh ? "POST" : "GET" }),
     importRecipe: (id: string) => at<{ from: "page" | "worker" }>(`/api/objects/${id}/import`, { method: "POST" }),
   };
 }

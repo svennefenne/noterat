@@ -34,6 +34,7 @@ async function stop() {
   stopping = true;
   // (what's waiting is stored; open connections get a few seconds to finish)
   app.jobs.stop();
+  app.calendars.stop();
   await sync.stop();
   const done = () => {
     db.close();

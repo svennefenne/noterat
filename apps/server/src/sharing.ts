@@ -19,7 +19,7 @@ import {
 } from "@noterat/core";
 import { createSession, hashPassword, newToken, tokenId } from "./auth";
 import type { DB } from "./db";
-import { Fail, readBody, signedIn, text, type Env } from "./http";
+import { Fail, publicAddress, readBody, signedIn, text, type Env } from "./http";
 import { addMember, deleteObject, membersOf, objectRow, people, person, removeMember, roleOf, setRole, type ObjectRow } from "./objects";
 import type { Sync } from "./sync";
 import { createUser, userByUsername } from "./users";
@@ -79,14 +79,7 @@ export function shareRoutes(app: Hono<Env>, o: { db: DB; sync: Sync; publicUrl: 
     return t;
   }
 
-  /** Where share links point: PUBLIC_URL, else the address this request came to. */
-  function publicBase(c: Context): string {
-    if (o.publicUrl) return o.publicUrl;
-    const url = new URL(c.req.url);
-    const proto = c.req.header("x-forwarded-proto")?.split(",")[0]?.trim() || url.protocol.replace(":", "");
-    const host = c.req.header("x-forwarded-host")?.split(",")[0]?.trim() || c.req.header("host") || url.host;
-    return `${proto}://${host}`;
-  }
+  const publicBase = (c: Context) => publicAddress(c, o.publicUrl);
 
   /** Someone gets what an invite gives (a link or an invitation). Used up only when it gave them something. */
   async function accept(invite: InviteRow, user: User): Promise<AcceptReply> {

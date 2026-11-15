@@ -121,6 +121,22 @@ const MIGRATIONS: string[] = [
   /* 5: what a job is given besides files (a recipe page's address, phase 5) */ `
   alter table jobs add column input text;
   `,
+  /* 6: calendars (phase 6) */ `
+  -- a calendar that is a subscription: its ICS address, fetched again every hour
+  create table subscriptions (
+    object_id text primary key references objects(id) on delete cascade,
+    url text not null,
+    refreshed_at integer not null default 0,
+    error text
+  );
+
+  -- each person's private calendar feed: /cal/<token>.ics (the token is the only key, as with a share link)
+  create table feeds (
+    user_id integer primary key references users(id) on delete cascade,
+    token text not null unique,
+    created_at integer not null
+  );
+  `,
 ];
 
 /** Open (or make) the database at file (":memory:" for tests), brought up to the latest schema. */

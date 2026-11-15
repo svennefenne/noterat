@@ -18,6 +18,7 @@
     "better-sqlite3": "^13.2.0",
     "crossws": "^0.4.17",
     "hono": "^4.13.18",
+    "ical.js": "^2.2.1",
     "yjs": "^13.6.33"
   },
   "devDependencies": {

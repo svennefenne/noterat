@@ -50,4 +50,6 @@
     <!-- voice memos: the microphone (asked for the first time someone records), and the WebView's audio settings -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- the calendar: the phone's own calendars, read and shown beside Noterat's (asked for when turned on) -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
 </manifest>

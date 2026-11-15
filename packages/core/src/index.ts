@@ -7,6 +7,7 @@
  * The source is used as it is (no build step): Vite bundles it into the app, esbuild into the server.
  */
 export * from "./api";
+export * from "./calendar";
 export * from "./docs";
 export * from "./files";
 export * from "./home";

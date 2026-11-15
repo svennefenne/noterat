@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookHeart, ChefHat, Lock, ListChecks, Mic, NotebookPen, ScanLine, Search } from "lucide-react";
+import { BookHeart, CalendarDays, ChefHat, Lock, ListChecks, Mic, NotebookPen, ScanLine, Search } from "lucide-react";
 import { Link } from "wouter";
 import { plainLine, type ObjectType } from "@noterat/core";
 import { useI18n } from "../lib/i18n";
@@ -7,7 +7,7 @@ import { buildIndex, snippet, type Hit } from "../lib/search";
 import { useHomeItems, useLock, useSession } from "../lib/sync-react";
 import { pathOf } from "../lib/things";
 
-const ICONS: Record<ObjectType, typeof ListChecks> = { list: ListChecks, note: NotebookPen, memo: Mic, journal: BookHeart, scan: ScanLine, recipe: ChefHat };
+const ICONS: Record<ObjectType, typeof ListChecks> = { list: ListChecks, note: NotebookPen, memo: Mic, journal: BookHeart, scan: ScanLine, recipe: ChefHat, calendar: CalendarDays };
 
 /**
  * Search in everything this person has, on the device (decision 7): it works the same offline. The

@@ -13,6 +13,8 @@ import { NoteScreen } from "../notes/NoteScreen";
 import { NotesScreen } from "../notes/NotesScreen";
 import { EntryScreen } from "../journal/EntryScreen";
 import { JournalScreen } from "../journal/JournalScreen";
+import { CalendarScreen } from "../calendar/CalendarScreen";
+import { useReminders } from "../calendar/useReminders";
 import { RecipeScreen } from "../recipes/RecipeScreen";
 import { RecipesScreen } from "../recipes/RecipesScreen";
 import { ScanScreen } from "../scans/ScanScreen";
@@ -59,6 +61,7 @@ export function SignedIn({ base, token, user, onLogout, onExpired }: { base: str
 
   return (
     <SessionProvider user={user} base={base} token={token} sync={sync} lock={lock}>
+      <Reminders />
       <LockGate what="app" onLogout={() => void logout()}>
       <Shell onLogout={() => void logout()}>
         <Caught fallback={<Broken />}>
@@ -98,6 +101,12 @@ export function SignedIn({ base, token, user, onLogout, onExpired }: { base: str
             <RecipesScreen />
           </Route>
           <Route path="/recipes/:id">{(p) => <RecipeScreen key={p.id} id={p.id} />}</Route>
+          <Route path="/calendar">
+            <CalendarScreen />
+          </Route>
+          <Route path="/calendar/:id">
+            <Redirect to="/calendar" />
+          </Route>
           <Route path="/search">
             <SearchScreen />
           </Route>
@@ -124,4 +133,10 @@ function Broken() {
       </button>
     </div>
   );
+}
+
+/** (the phone's calendar reminders, kept up to date while the app runs) */
+function Reminders() {
+  useReminders();
+  return null;
 }
