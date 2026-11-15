@@ -80,6 +80,8 @@ holds the household's accounts (add someone, rename, make an admin, a new passwo
 remove), its look (Noterat's colours or any of Hooden's 98 colour schemes, light, dark or auto; anyone can
 pick their own under *Appearance…*), how days and times are written and the time zone the server goes by,
 Swish on or off for shared costs, push, mail, and which builds of the apps the server offers.
+The app opens on a **start page** with the latest of each section and what's coming in the calendar; the
+admin picks which sections show there, in what order and how many ([decision 15](docs/decisions/0015-start-page.md)).
 
 ### The desktop app (Linux)
 

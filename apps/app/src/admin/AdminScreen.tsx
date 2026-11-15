@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Bell, ChevronRight, Languages, Mail, Palette, Smartphone, Users, Wallet } from "lucide-react";
+import { ArrowLeft, Bell, ChevronRight, House, Languages, Mail, Palette, Smartphone, Users, Wallet } from "lucide-react";
 import { cleanHousehold, schemeOf } from "@noterat/core";
 import type { AdminUser } from "../lib/api";
 import { useDates } from "../lib/dates";
@@ -11,6 +11,7 @@ import { MailAdminForm } from "../shell/MailSettings";
 import { PushAdminForm } from "../shell/PushSettings";
 import { Problem } from "../ui";
 import { AppsSection } from "./Apps";
+import { HomeSettingsSection } from "./Home";
 import { LocaleSection } from "./Locale";
 import { LookSection } from "./Look";
 import { UsersSection } from "./Users";
@@ -25,6 +26,7 @@ const SECTIONS = [
   { key: "users", Icon: Users },
   { key: "look", Icon: Palette },
   { key: "locale", Icon: Languages },
+  { key: "home", Icon: House },
   { key: "money", Icon: Wallet },
   { key: "push", Icon: Bell },
   { key: "mail", Icon: Mail },
@@ -39,15 +41,19 @@ export function useSaveHousehold() {
   const { household, set } = useHousehold();
   const { errorText } = useI18n();
   const [problem, setProblem] = useState("");
+  // (only the latest change's answer counts: an earlier one, arriving after it, would undo it on screen)
+  const latest = useRef(0);
   const save = useCallback(
     async (patch: unknown) => {
       const was = household;
+      const n = ++latest.current;
       setProblem("");
       set(cleanHousehold(patch, household));
       try {
-        set(await api.setHousehold(patch));
+        const saved = await api.setHousehold(patch);
+        if (n === latest.current) set(saved);
       } catch (err) {
-        set(was);
+        if (n === latest.current) set(was);
         setProblem(errorText(err));
       }
     },
@@ -85,6 +91,7 @@ export function AdminScreen({ section }: { section?: string }) {
     users: users ? t(users.length === 1 ? "admin.users.countOne" : "admin.users.count", { n: users.length }) : "",
     look: `${schemeOf(household.look.scheme).name} · ${t(`look.mode.${household.look.mode}`)}`,
     locale: [household.locale.lang === "sv" ? "Svenska" : "English", dates.day(new Date(), { year: true }), dates.time(new Date())].join(" · "),
+    home: t("admin.home.summary", { n: household.home.sections.filter((s) => s.show).length }),
     money: t(household.money.swish ? "admin.money.swishOn" : "admin.money.swishOff"),
     push: "",
     mail: "",
@@ -119,6 +126,7 @@ export function AdminScreen({ section }: { section?: string }) {
         {shown === "users" && <UsersSection users={users} reload={reload} />}
         {shown === "look" && <LookSection />}
         {shown === "locale" && <LocaleSection />}
+        {shown === "home" && <HomeSettingsSection />}
         {shown === "money" && <MoneySection />}
         {shown === "push" && (
           <AdminSection id="push" intro={t("admin.push.intro")}>
