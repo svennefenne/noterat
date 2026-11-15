@@ -10,6 +10,7 @@ import { afterEach, expect } from "vitest";
 import { CHUNK_SIZE, type UploadReply } from "@noterat/core";
 import * as Y from "yjs";
 import { createApp } from "../src/app";
+import type { MailTransport } from "../src/mail";
 import type { FetchPage } from "../src/recipes";
 import { createSession, hashPassword } from "../src/auth";
 import { openDb, type DB } from "../src/db";
@@ -27,11 +28,13 @@ afterEach(async () => {
   for (const stop of stops.splice(0).reverse()) await stop();
 });
 
-export async function startServer(o: { workerToken?: string; workerWait?: number; workerLease?: number; fetchPage?: FetchPage; pushFetch?: typeof fetch } = {}) {
+export async function startServer(
+  o: { workerToken?: string; workerWait?: number; workerLease?: number; fetchPage?: FetchPage; pushFetch?: typeof fetch; mailTransport?: MailTransport; mailEnv?: NodeJS.ProcessEnv } = {},
+) {
   const db = openDb(":memory:");
   const sync = createSync(db, { debounce: 20, maxDebounce: 100 });
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "noterat-test-"));
-  const app = createApp({ db, sync, version: "test", webDir: null, trustedIpHeader: "", publicUrl: "", dataDir, workerToken: o.workerToken, workerWait: o.workerWait ?? 300, workerLease: o.workerLease, fetchPage: o.fetchPage, pushFetch: o.pushFetch });
+  const app = createApp({ db, sync, version: "test", webDir: null, trustedIpHeader: "", publicUrl: "", dataDir, workerToken: o.workerToken, workerWait: o.workerWait ?? 300, workerLease: o.workerLease, fetchPage: o.fetchPage, pushFetch: o.pushFetch, mailTransport: o.mailTransport, mailEnv: o.mailEnv ?? {} });
   const server = await new Promise<Server>((resolve) => {
     const s = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" }, () => resolve(s as Server));
   });

@@ -3200,3 +3200,693 @@ p.to-budget {
   gap: 6px;
   text-decoration: none;
 }
+
+/* ───────────── shared costs (decision 13): people as cards, balances as bars ───────────── */
+
+.section-title {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.section-head .section-title {
+  margin: 0;
+}
+
+.splits-section {
+  margin-top: 32px;
+}
+
+.split-empty {
+  max-width: 60ch;
+  margin: 0;
+}
+
+.split-net {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.split-net.plus,
+.split-part.plus {
+  color: var(--accent);
+}
+
+.split-net.minus,
+.split-part.minus {
+  color: var(--danger);
+}
+
+.split-meta {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.split-meta strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.split-people {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr));
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 480px) {
+  .split-people {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .split-who {
+    gap: 8px;
+  }
+
+  .split-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 0.875rem;
+  }
+
+  .split-name {
+    font-size: 0.875rem;
+  }
+}
+
+/* Share and the menu stay beside the title */
+.split-screen .list-title-row {
+  flex-wrap: nowrap;
+}
+
+.split-screen .list-title-row > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.split-person-name {
+  white-space: nowrap;
+}
+
+.split-person {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 12px;
+  color: inherit;
+  text-align: start;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  transition: border-color 0.15s;
+}
+
+.split-person:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+}
+
+.split-person:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.split-who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* quiet, so the balances carry the colour */
+.split-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: var(--text);
+  font-weight: 700;
+  background: var(--hover);
+  border-radius: 50%;
+}
+
+.split-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.split-name small {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.split-nums {
+  display: flex;
+  flex-direction: column;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.split-nums > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.split-figures {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.split-balance {
+  font-size: 1.3rem;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.split-balance.plus {
+  color: var(--accent);
+}
+
+.split-balance.minus {
+  color: var(--danger);
+}
+
+.split-balance.even {
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* one zero line, the same on every card: owed grows right in green, owing left in red */
+.split-bar {
+  position: relative;
+  display: block;
+  height: 6px;
+  background: var(--hover);
+  border-radius: 999px;
+}
+
+.split-bar::before {
+  content: "";
+  position: absolute;
+  inset: -3px auto -3px 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--muted);
+  border-radius: 1px;
+}
+
+.split-bar > span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.split-bar > .plus {
+  left: 50%;
+  border-radius: 0 999px 999px 0;
+}
+
+.split-bar > .minus {
+  right: 50%;
+  border-radius: 999px 0 0 999px;
+}
+
+.split-bar .plus {
+  background: var(--accent);
+}
+
+.split-bar .minus {
+  background: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .split-bar > span {
+    transition: none;
+  }
+}
+
+.split-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.split-flag {
+  padding: 1px 8px;
+  color: var(--danger);
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--danger-soft);
+  border-radius: 999px;
+}
+
+.split-add-person {
+  grid-column: 1 / -1;
+}
+
+.split-add-person button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  color: var(--muted);
+  font-weight: 600;
+  background: transparent;
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius);
+}
+
+.split-add-person button:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+}
+
+.split-section {
+  margin-top: 28px;
+}
+
+.split-expenses {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.split-expenses button {
+  display: grid;
+  grid-template-columns: minmax(3.4em, max-content) 1fr auto;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 4px;
+  color: inherit;
+  text-align: start;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+}
+
+.split-expenses button:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.split-expenses button:disabled {
+  cursor: default;
+}
+
+.split-date {
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.split-what {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.split-what small {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.split-amount,
+.split-transfer-amount,
+.split-part-share {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* the two things to do, always at hand: on a phone a bar resting on the tab bar */
+.split-dock {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+  margin-top: 24px;
+  padding: 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  /* (the ground below it too, so nothing scrolls past in the gap) */
+  box-shadow: 0 13px 0 0 var(--bg);
+}
+
+.split-dock button {
+  flex: 1;
+  margin: 0;
+}
+
+.split-dock .secondary {
+  background: var(--surface);
+}
+
+@media (max-width: 719px) {
+  .split-dock {
+    bottom: calc(var(--tabbar) + max(0px, env(safe-area-inset-bottom) - 6px));
+    margin-inline: calc(-1 * max(16px, env(safe-area-inset-left)));
+    padding: 10px max(16px, env(safe-area-inset-left));
+    border-width: 1px 0 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+/* who pays whom */
+.split-transfers,
+.split-payments {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.split-transfers li,
+.split-payments li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+/* who on the left; the amount, and marking it paid, in a column on the right */
+.split-transfers li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+}
+
+.split-transfer-who {
+  grid-row: span 2;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.split-transfers .secondary.small {
+  justify-self: end;
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.split-payments li > span:first-child {
+  flex: 1 1 12em;
+}
+
+.split-warn {
+  display: block;
+  color: var(--danger);
+  font-size: 0.8125rem;
+}
+
+.split-subhead {
+  margin: 20px 0 4px;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+/* the expense dialog */
+.split-for {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.split-for legend {
+  margin-bottom: 8px;
+  padding: 0;
+  font-weight: 600;
+}
+
+.split-parts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.split-parts li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--line);
+}
+
+.split-parts .check,
+.split-part-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.split-parts .amount-input {
+  width: 8em;
+  text-align: end;
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+}
+
+.stepper button {
+  min-height: 40px;
+  padding: 0 14px;
+  color: var(--text);
+  font-size: 1.1rem;
+  background: transparent;
+  border: none;
+}
+
+.stepper span {
+  min-width: 2ch;
+  text-align: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.split-accounts .chips {
+  margin: 6px 0 0;
+  flex-wrap: wrap;
+}
+
+/* sending it out */
+.split-recipients {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.split-recipients li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.split-recipients .check {
+  flex: 1;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.split-recipients .check input {
+  margin-top: 3px;
+}
+
+.split-recipients .no-mail strong {
+  color: var(--muted);
+}
+
+.split-recipient {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.split-recipient strong {
+  font-weight: 600;
+}
+
+.split-recipient .link-button {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 0;
+}
+
+.split-email {
+  overflow-wrap: anywhere;
+}
+
+.split-part {
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.split-recipient-end {
+  flex: none;
+}
+
+.split-sent {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* the admin's mail dialog */
+.mail-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--hover);
+  border-radius: var(--radius-small);
+}
+
+.mail-status.on {
+  background: var(--accent-soft);
+}
+
+.mail-lamp {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-top: 7px;
+  background: var(--muted);
+  border-radius: 50%;
+}
+
+.mail-status.on .mail-lamp {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.mail-test {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.mail-test .secondary {
+  align-self: flex-start;
+  width: auto;
+  margin: 0;
+}
+
+.split-parts .split-part-share {
+  min-width: 5.5em;
+  text-align: end;
+}
+
+.split-transfers .split-transfer-amount {
+  justify-self: end;
+}
+
+.split-receipt-mark {
+  margin-left: 6px;
+  color: var(--muted);
+  vertical-align: -2px;
+}
+
+/* an expense from a scanned receipt */
+.split-receipt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 4px 4px 12px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-small);
+}
+
+.split-receipt > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.split-receipts ul {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+}
+
+.split-receipts li + li {
+  border-top: 1px solid var(--line);
+}
+
+.split-receipts li button {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  color: var(--text);
+  text-align: start;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.split-receipts li button:hover {
+  background: var(--hover);
+}
+
+p.to-budget a,
+.split-receipt a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}

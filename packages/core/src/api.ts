@@ -77,7 +77,12 @@ export type ErrorCode =
   | "push_bad_google_services"
   | "push_bad_service_account"
   | "push_project_mismatch"
-  | "push_key_refused";
+  | "push_key_refused"
+  // mail and splitting costs
+  | "mail_off"
+  | "mail_bad_settings"
+  | "mail_bad_address"
+  | "split_nobody";
 
 export interface ApiErrorBody {
   error: ErrorCode;

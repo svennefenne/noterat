@@ -109,6 +109,11 @@ export function signedInApi(base: string, token: string) {
     setAdminPush: (googleServices: string, serviceAccount: string) => at<AdminPush>("/api/admin/push", { method: "PUT", body: { googleServices, serviceAccount } }),
     removeAdminPush: () => at<void>("/api/admin/push", { method: "DELETE" }),
     androidRelease: () => at<{ versionName: string; versionCode: number; url: string } | null>("/api/app/android"),
+    mailReady: () => at<{ ready: boolean }>("/api/mail"),
+    adminMail: () => at<AdminMail>("/api/admin/mail"),
+    setAdminMail: (m: MailSettingsInput) => at<AdminMail>("/api/admin/mail", { method: "PUT", body: m }),
+    testMail: (to: string, lang: string) => at<{ sent: boolean; error?: string }>(`/api/admin/mail/test?lang=${lang}`, { method: "POST", body: { to } }),
+    sendSplit: (id: string, lang: string, to?: string[]) => at<{ results: { id: string; sent: boolean; error?: string }[] }>(`/api/objects/${id}/send`, { method: "POST", body: { lang, ...(to ? { to } : {}) } }),
   };
 }
 export type SignedInApi = ReturnType<typeof signedInApi>;
@@ -129,6 +134,25 @@ export interface AdminPush {
   projectId: string;
   clientEmail: string;
   devices?: number;
+}
+
+export type MailSecurity = "tls" | "starttls" | "none";
+/** The admin's mail dialog: the SMTP server, never its password (hasPass says there is one). */
+export interface AdminMail {
+  ready: boolean;
+  source: "admin" | "env" | null;
+  settings: { host: string; port: number; security: MailSecurity; user: string; from: string; fromName: string; hasPass: boolean } | null;
+  lastFailure: { at: number; to: string; error: string } | null;
+}
+/** pass: null keeps the saved one; host "" turns mail off */
+export interface MailSettingsInput {
+  host: string;
+  port: number;
+  security: MailSecurity;
+  user: string;
+  pass: string | null;
+  from: string;
+  fromName: string;
 }
 
 /** What someone typed as the server's address, made whole: https:// unless they wrote http://, no path. Null: not an address. */

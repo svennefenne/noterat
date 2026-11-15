@@ -22,3 +22,6 @@ __pycache__
 # service account's key is a secret
 google-services.json
 *firebase-adminsdk*.json
+# the design tool's working files (its sketches, questions and screenshots); the surface briefs are kept
+/.impeccable
+/apps/app/.impeccable/review

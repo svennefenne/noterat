@@ -9,7 +9,9 @@ import { Fail, readBody, signedIn, text, type Env } from "./http";
 import { appUpdateRoutes } from "./appUpdates";
 import { calendarRoutes } from "./calendars";
 import { createJobs } from "./jobs";
+import { createMailer, mailRoutes, type MailTransport } from "./mail";
 import { pushRoutes } from "./push";
+import { splitRoutes } from "./splits";
 import { recipeImport, type FetchPage } from "./recipes";
 import { shareRoutes } from "./sharing";
 import type { Sync } from "./sync";
@@ -42,6 +44,9 @@ export interface AppOptions {
   fetchPage?: FetchPage;
   /** (tests: how Google's push endpoints are reached) */
   pushFetch?: typeof fetch;
+  /** (tests: where mail goes instead of an SMTP server, and the SMTP_* environment) */
+  mailTransport?: MailTransport;
+  mailEnv?: NodeJS.ProcessEnv;
 }
 
 /**
@@ -139,6 +144,9 @@ export function createApp(o: AppOptions) {
 
   const push = pushRoutes(app, { db, fetch: o.pushFetch, notice: (userId, n) => o.sync.notice(userId, n) });
   shareRoutes(app, { db, sync: o.sync, publicUrl: o.publicUrl, push });
+  const mail = createMailer(db, { transport: o.mailTransport, env: o.mailEnv });
+  mailRoutes(app, { db, mail });
+  splitRoutes(app, { db, sync: o.sync, mail });
 
   const store = fileStore(o.dataDir);
   const recipes = recipeImport({ db, sync: o.sync, store, fetchPage: o.fetchPage });

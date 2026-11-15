@@ -11,8 +11,9 @@ in Markdown, written together live; voice memos, turned into text by KB-Whisper 
 journal with text, photos and voice clips; a scanner for documents and receipts; recipes imported from a
 link, scaled and put on the shopping list; calendars, shared (a family calendar) or subscribed to (any
 ICS address, and the phone's own), with repeats, reminders and a private feed for other calendar apps;
-and a household budget, month by month (envelopes or zero-based), filled from the bank's CSV export and
-from receipts. Search finds words in all of it, offline too; the journal (or the whole app) can be locked
+a household budget, month by month (envelopes or zero-based), filled from the bank's CSV export and
+from receipts; and shared costs for a trip or a dinner, worked out and mailed to everyone with Swish QR
+codes. Search finds words in all of it, offline too; the journal (or the whole app) can be locked
 with the fingerprint. Push notifications go through your own Firebase project; the Linux desktop app
 works offline like the phone; see [the plan](docs/PLAN.md) and [the decisions behind it](docs/decisions/).
 
@@ -64,6 +65,12 @@ and a service account's private key (Project settings → Service accounts). The
 with it at their next start and ask for permission. Each person picks what they're told about, and
 quiet hours, under *Notifications…*; a push only ever says that something happened, never what's in it.
 The desktop app shows the same notifications while it runs (in the tray too), with or without Firebase.
+
+**Mail** (for sending out shared costs) goes through your own SMTP server. As the admin, open the account
+menu → *Mail (SMTP)…*, fill in the server and send yourself a test mail; with Gmail that's
+`smtp.gmail.com`, STARTTLS, your Gmail address as user and sender, and an app password. Or set
+`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` (`starttls`, `tls` or `none`), `SMTP_USER`, `SMTP_PASS`,
+`SMTP_FROM` and `SMTP_FROM_NAME` on the container; what's saved in the app takes over from them.
 
 ### The desktop app (Linux)
 
