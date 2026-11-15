@@ -27,6 +27,7 @@ import { RecipesScreen } from "../recipes/RecipesScreen";
 import { ScanScreen } from "../scans/ScanScreen";
 import { ScansScreen } from "../scans/ScansScreen";
 import { SearchScreen } from "../search/SearchScreen";
+import { HomeScreen } from "../home/HomeScreen";
 import { AdminScreen } from "../admin/AdminScreen";
 import { preloadEditor } from "../notes/LazyEditor";
 import { Caught } from "../ui";
@@ -101,7 +102,7 @@ export function SignedIn({
         <Caught fallback={<Broken />}>
         <Switch>
           <Route path="/">
-            <Redirect to="/lists" replace />
+            <HomeScreen />
           </Route>
           <Route path="/lists">
             <ListsScreen />
@@ -155,7 +156,7 @@ export function SignedIn({
           </Route>
           <Route path="/i/:token">{(p) => <LinkScreen base={base} link={p.token} />}</Route>
           <Route>
-            <Redirect to="/lists" />
+            <Redirect to="/" />
           </Route>
         </Switch>
         </Caught>

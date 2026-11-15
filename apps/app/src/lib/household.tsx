@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { cleanHousehold, defaultHousehold, isScheme, lookBackground, lookCss, LOOK_MODES, type Household, type LookMode } from "@noterat/core";
 
 /**
@@ -68,8 +68,11 @@ export function HouseholdProvider({ base: firstBase, children }: { base: string 
   const [mine, setMineState] = useState<MyLook>(firstMine);
   const [base, setBase] = useState(firstBase);
   const [asked, setAsked] = useState(0);
+  /** when this device last changed them itself: an answer asked for before that is older than what it shows */
+  const changedAt = useRef(0);
 
   const set = useCallback((h: Household) => {
+    changedAt.current = Date.now();
     write(CACHE, h);
     setHousehold(h);
   }, []);
@@ -82,10 +85,14 @@ export function HouseholdProvider({ base: firstBase, children }: { base: string 
   useEffect(() => {
     if (base === null) return;
     let gone = false;
+    const since = Date.now();
     fetch(`${base}/api/household`, { signal: AbortSignal.timeout(15_000) })
       .then((r) => (r.ok ? r.json() : null))
       .then((h: unknown) => {
-        if (!gone && h) set(cleanHousehold(h, defaultHousehold()));
+        if (gone || !h || changedAt.current > since) return;
+        const next = cleanHousehold(h, defaultHousehold());
+        write(CACHE, next);
+        setHousehold(next);
       })
       .catch(() => {
         // (offline, or an older server: what this device has)
