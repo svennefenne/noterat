@@ -8,7 +8,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/svennefenne/noterat/issues</Support>
   <Project>https://github.com/svennefenne/noterat</Project>
-  <Overview>Noterat: notes, a journal, voice memos, lists, a budget, a calendar, recipes and a receipt and document scanner, for you and the people you choose to share with. Live when you're online, and the Android app keeps working offline. Everything lives in one folder (appdata). Lists, notes (Markdown), voice memos, a journal, scanned documents and receipts, and recipes so far, shared live and working offline in the app, with search across all of it. The optional Noterat worker turns voice into text on an Nvidia GPU, and reads scans into searchable PDFs. The other sections come phase by phase.</Overview>
+  <Overview>Noterat: notes, a journal, voice memos, lists, a budget, a calendar, recipes and a receipt and document scanner, for you and the people you choose to share with. Live when you're online, and the Android app keeps working offline. Everything lives in one folder (appdata). Lists, notes (Markdown), voice memos, a journal, scanned documents and receipts, recipes and calendars (with ICS subscriptions and a private feed) so far, shared live and working offline in the app, with search across all of it. The optional Noterat worker turns voice into text on an Nvidia GPU, and reads scans into searchable PDFs. The other sections come phase by phase.</Overview>
   <Category>Productivity: Tools:</Category>
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/svennefenne/noterat/main/unraid/noterat.xml</TemplateURL>

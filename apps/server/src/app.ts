@@ -6,6 +6,7 @@ import { createSession, dummyHash, endSession, hashPassword, LoginThrottle, veri
 import type { DB } from "./db";
 import { fileRoutes, fileStore } from "./files";
 import { Fail, readBody, signedIn, text, type Env } from "./http";
+import { calendarRoutes } from "./calendars";
 import { createJobs } from "./jobs";
 import { recipeImport, type FetchPage } from "./recipes";
 import { shareRoutes } from "./sharing";
@@ -150,6 +151,7 @@ export function createApp(o: AppOptions) {
   fileRoutes(app, { db, store, onUploaded: jobs.onUploaded });
   jobs.routes(app);
   recipes.routes(app, jobs);
+  const calendars = calendarRoutes(app, { db, sync: o.sync, publicUrl: o.publicUrl, fetchPage: o.fetchPage });
 
   app.all("/api/*", () => {
     throw new Fail("not_found", 404);
@@ -157,5 +159,5 @@ export function createApp(o: AppOptions) {
 
   if (o.webDir) app.get("*", webFiles(o.webDir));
 
-  return Object.assign(app, { jobs });
+  return Object.assign(app, { jobs, calendars });
 }

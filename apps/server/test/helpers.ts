@@ -39,6 +39,7 @@ export async function startServer(o: { workerToken?: string; workerWait?: number
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   stops.push(async () => {
     app.jobs.stop();
+    app.calendars.stop();
     await sync.stop();
     await new Promise((r) => server.close(r));
     db.close();

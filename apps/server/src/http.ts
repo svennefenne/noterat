@@ -36,3 +36,12 @@ export async function readBody(c: Context): Promise<Record<string, unknown>> {
 }
 
 export const text = (v: unknown) => (typeof v === "string" ? v : "");
+
+/** Where links to this server point (share links, calendar feeds): PUBLIC_URL, else the address the request came to. */
+export function publicAddress(c: Context, publicUrl: string): string {
+  if (publicUrl) return publicUrl;
+  const url = new URL(c.req.url);
+  const proto = c.req.header("x-forwarded-proto")?.split(",")[0]?.trim() || url.protocol.replace(":", "");
+  const host = c.req.header("x-forwarded-host")?.split(",")[0]?.trim() || c.req.header("host") || url.host;
+  return `${proto}://${host}`;
+}

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Bell, BookHeart, ChefHat, Cloud, CloudOff, Ellipsis, HardDrive, ListChecks, Loader, Mic, NotebookPen, ScanLine, Search, UserRound } from "lucide-react";
+import { Bell, BookHeart, CalendarDays, ChefHat, Cloud, CloudOff, Ellipsis, HardDrive, ListChecks, Loader, Mic, NotebookPen, ScanLine, Search, UserRound } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { isApp } from "../lib/api";
 import { useI18n } from "../lib/i18n";
@@ -51,9 +51,10 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
 
 const SECTIONS = [
   { type: "list", Icon: ListChecks },
+  { type: "calendar", Icon: CalendarDays },
   { type: "note", Icon: NotebookPen },
-  { type: "memo", Icon: Mic },
   { type: "journal", Icon: BookHeart },
+  { type: "memo", Icon: Mic },
   { type: "scan", Icon: ScanLine },
   { type: "recipe", Icon: ChefHat },
 ] as const;
