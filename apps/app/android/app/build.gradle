@@ -16,6 +16,12 @@ android {
         versionCode Integer.parseInt(System.getenv("NOTERAT_VERSION_CODE") ?: "1")
         versionName System.getenv("NOTERAT_VERSION_NAME") ?: "0.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // Only 64-bit ARM, which every phone from the last several years is: ML Kit's text recognition
+        // brings an 11 MB native library per processor type, and the others (x86 for emulators, 32-bit
+        // ARM for very old phones) would add some 30 MB to the APK.
+        ndk {
+            abiFilters "arm64-v8a"
+        }
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
