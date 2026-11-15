@@ -10,6 +10,7 @@ import { LockSettingsForm } from "./LockGate";
 import { MailAdminForm } from "./MailSettings";
 import { NotificationSettingsForm, PushAdminForm } from "./PushSettings";
 import { UpdateBanner } from "./UpdateBanner";
+import { BUILD, versionText } from "../lib/updates";
 
 /**
  * The signed-in app's frame: the name (home), the sections (along the top on a wide screen, at the
@@ -38,6 +39,7 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
           <Menu label={t("menu.open")} icon={<UserRound aria-hidden size={20} />} className="end">
             <div className="menu-text">{t("menu.signedInAs", { name: user.displayName })}</div>
             {isApp && <div className="menu-text muted">{t("menu.server", { server: new URL(base).host })}</div>}
+            <div className="menu-text muted">{t("menu.version", { version: versionText(t, BUILD.version, BUILD.build) })}</div>
             <MenuItem onSelect={() => setLang(lang === "sv" ? "en" : "sv")}>{t("lang.other")}</MenuItem>
             <MenuItem onSelect={() => setLocking(true)}>{t("lock.settings")}</MenuItem>
             <MenuItem onSelect={() => setPushing("prefs")}>{t("push.settings")}</MenuItem>

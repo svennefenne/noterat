@@ -169,20 +169,48 @@ describe("a notice as the desktop app reads it", () => {
   });
 });
 
-describe("the Android app's updates", () => {
-  it("offers the newest APK put in the app folder, and serves it without a session", async () => {
+describe("the apps' updates", () => {
+  it("offers the newest build, from the image or put in the app folder, and serves it without a session", async () => {
     const fs = await import("node:fs");
+    const os = await import("node:os");
     const path = await import("node:path");
-    const { base, dataDir } = await startServer();
+    const { createHash } = await import("node:crypto");
+    const sha = (s: string) => createHash("sha256").update(s).digest("hex");
+    const bundled = fs.mkdtempSync(path.join(os.tmpdir(), "noterat-bundled-"));
+    const { base, dataDir } = await startServer({ bundledDir: bundled });
     expect((await call(base, "GET", "/api/app/android")).json).toBeNull();
+    expect((await call(base, "GET", "/api/app/desktop")).json).toBeNull();
+    expect((await call<{ build: number }>(base, "GET", "/api/server")).json.build).toBe(30);
+
+    // the image's own
+    fs.writeFileSync(path.join(bundled, "noterat-android-0.1.0-30.apk"), "bundled apk");
+    fs.writeFileSync(path.join(bundled, "noterat-desktop-0.1.0-30.AppImage"), "bundled appimage");
+    expect((await call(base, "GET", "/api/app/android")).json).toEqual({
+      version: "0.1.0",
+      build: 30,
+      url: "/app/noterat.apk",
+      size: 11,
+      sha256: sha("bundled apk"),
+      versionName: "0.1.0",
+      versionCode: 30,
+    });
+    expect((await call(base, "GET", "/api/app/desktop")).json).toEqual({ version: "0.1.0", build: 30, url: "/app/noterat.AppImage", size: 16, sha256: sha("bundled appimage") });
+
+    // one put in the app folder by hand, newer: that one; older: the image's still
     fs.mkdirSync(path.join(dataDir, "app"));
     fs.writeFileSync(path.join(dataDir, "app", "noterat-android-0.1.0-21.apk"), "old");
-    fs.writeFileSync(path.join(dataDir, "app", "noterat-android-0.1.0-23.apk"), "newer");
-    fs.writeFileSync(path.join(dataDir, "app", "notes.txt"), "not an apk");
-    expect((await call(base, "GET", "/api/app/android")).json).toEqual({ versionName: "0.1.0", versionCode: 23, url: "/app/noterat.apk", size: 5 });
-    const res = await fetch(`${base}/app/noterat.apk`);
-    expect(res.headers.get("content-type")).toBe("application/vnd.android.package-archive");
-    expect(res.headers.get("content-disposition")).toContain("noterat-android-0.1.0-23.apk");
-    expect(await res.text()).toBe("newer");
+    fs.writeFileSync(path.join(dataDir, "app", "noterat-android-0.1.0-33.apk"), "newer");
+    fs.writeFileSync(path.join(dataDir, "app", "noterat-desktop-0.1.0-12.AppImage"), "older");
+    fs.writeFileSync(path.join(dataDir, "app", "notes.txt"), "not an app");
+    expect((await call(base, "GET", "/api/app/android")).json).toMatchObject({ build: 33, size: 5, sha256: sha("newer") });
+    expect((await call(base, "GET", "/api/app/desktop")).json).toMatchObject({ build: 30 });
+
+    const apk = await fetch(`${base}/app/noterat.apk`);
+    expect(apk.headers.get("content-type")).toBe("application/vnd.android.package-archive");
+    expect(apk.headers.get("content-disposition")).toContain("noterat-android-0.1.0-33.apk");
+    expect(await apk.text()).toBe("newer");
+    const appImage = await fetch(`${base}/app/noterat.AppImage`);
+    expect(appImage.headers.get("content-disposition")).toContain("noterat-desktop-0.1.0-30.AppImage");
+    expect(await appImage.text()).toBe("bundled appimage");
   });
 });

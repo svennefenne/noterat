@@ -11,6 +11,7 @@ import path from "node:path";
 import { autostartOn, setAutostart } from "./autostart.js";
 import { isAppUrl, locate, mimeType, ORIGIN, SCHEME } from "./protocol.js";
 import { setLang, t } from "./text.js";
+import { startAgainAfter, updateFrom } from "./update.js";
 
 const ROOT = path.join(import.meta.dirname, "..");
 const WEB = path.join(ROOT, "web");
@@ -18,6 +19,14 @@ const ASSETS = path.join(ROOT, "assets");
 const HIDDEN = process.argv.includes("--hidden");
 /** What starts this copy: the AppImage where it is now; run from source, Electron with the app's folder. */
 const COMMAND = process.env.APPIMAGE ? [process.env.APPIMAGE] : app.isPackaged ? [process.execPath] : [process.execPath, app.getAppPath()];
+/** This copy's build (the web build's version.json; decision 16): an update has to be newer. */
+const OWN_BUILD = (() => {
+  try {
+    return Number(JSON.parse(fs.readFileSync(path.join(WEB, "version.json"), "utf8")).build) || 0;
+  } catch {
+    return 0;
+  }
+})();
 
 let win = null;
 let tray = null;
@@ -139,7 +148,7 @@ function createWindow() {
       spellcheck: true,
       // (throttled in the tray, as a background tab is: it keeps syncing over its WebSocket, and the page
       // sees itself hidden, which the app's lock goes by; backgroundThrottling: false would hide that)
-      additionalArguments: [`--noterat-version=${app.getVersion()}`],
+      additionalArguments: [`--noterat-version=${app.getVersion()}`, `--noterat-updates=${process.env.APPIMAGE ? 1 : 0}`],
     },
   });
   win.once("ready-to-show", () => {
@@ -266,7 +275,47 @@ function start() {
 
 // a notification clicked (preload.cjs)
 ipcMain.on("noterat:show", (e) => {
-  if (win && e.sender === win.webContents && isAppUrl(e.senderFrame?.url ?? "")) show();
+  if (fromApp(e)) show();
+});
+
+// ------------------------------------------------------------ updates (decision 16)
+
+const fromApp = (e) => !!win && e.sender === win.webContents && isAppUrl(e.senderFrame?.url ?? "");
+
+/** Started again, as the new AppImage once this one has ended: in the tray if the window is hidden. */
+function restart() {
+  if (!process.env.APPIMAGE) return;
+  startAgainAfter(process.pid, process.env.APPIMAGE, process.argv.slice(1), !win || win.isDestroyed() || !win.isVisible());
+  quit();
+}
+
+let updating = null;
+let installed = 0;
+
+// the page asks, with the server it's logged in to: the AppImage is replaced if the server has a newer
+// build; hidden in the tray it starts again at once, else the page offers to
+ipcMain.handle("noterat:update", async (e, server) => {
+  if (!fromApp(e)) return { status: "refused" };
+  const appImage = process.env.APPIMAGE;
+  if (!appImage || typeof server !== "string") return { status: "unsupported" };
+  updating ??= updateFrom(server, { own: Math.max(OWN_BUILD, installed), appImage }).finally(() => {
+    updating = null;
+  });
+  try {
+    const r = await updating;
+    if (r.status === "updated") {
+      installed = r.build;
+      if (!win.isVisible()) restart();
+    }
+    return installed > OWN_BUILD ? { status: "updated", build: installed } : r;
+  } catch (err) {
+    console.error("couldn't update:", err);
+    return { status: "failed", error: String(err?.message ?? err) };
+  }
+});
+
+ipcMain.on("noterat:restart", (e) => {
+  if (fromApp(e)) restart();
 });
 
 if (!app.requestSingleInstanceLock()) {

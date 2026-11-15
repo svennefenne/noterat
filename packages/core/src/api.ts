@@ -9,6 +9,8 @@ import type { ObjectType } from "./docs";
 export interface ServerInfo {
   app: "noterat";
   version: string;
+  /** the build (the number of commits; 0 in development), as the app's own (decision 16) */
+  build: number;
   /** no accounts yet: the first one made (POST /api/setup) is the admin */
   needsSetup: boolean;
 }

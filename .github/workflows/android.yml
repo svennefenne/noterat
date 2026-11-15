@@ -1,15 +1,14 @@
 name: Android app
 
+# On main it runs from ci.yml, whose image takes the APK (decision 16); a pull request runs it here.
 on:
-  push:
-    branches: [main]
-    paths: ["apps/app/**", "packages/core/**", "package-lock.json", ".github/workflows/android.yml"]
+  workflow_call:
   pull_request:
     paths: ["apps/app/**", "packages/core/**", "package-lock.json", ".github/workflows/android.yml"]
   workflow_dispatch:
 
 permissions:
-  contents: write     # publishes the APK as a release
+  contents: read
 
 jobs:
   apk:
@@ -29,12 +28,16 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
 
       - run: npm ci --no-audit --no-fund
+      - name: The build number (the commits, as the server's and the desktop app's)
+        run: |
+          echo "NOTERAT_BUILD=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
+          echo "NOTERAT_SHA=$GITHUB_SHA" >> "$GITHUB_ENV"
       - name: Put the app's web build into the Android project
         run: npm run android -w @noterat/app
 
       # Signed with the app's own key when the repository has it (Settings → Secrets → Actions:
-      # ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS); else with the debug
-      # key, which is fine for trying it out but can't update an app signed with the real one.
+      # ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS); else with a debug key,
+      # new on every run, which is fine for trying it out but can't update anything (decision 16).
       - name: Build the APK
         id: apk
         env:
@@ -43,7 +46,7 @@ jobs:
           NOTERAT_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
           export NOTERAT_VERSION_NAME="$(node -p "require('./package.json').version")"
-          export NOTERAT_VERSION_CODE="$(git rev-list --count HEAD)"
+          export NOTERAT_VERSION_CODE="$NOTERAT_BUILD"
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/noterat-release.jks"
             export NOTERAT_KEYSTORE="$RUNNER_TEMP/noterat-release.jks"
@@ -55,26 +58,10 @@ jobs:
           echo "name=$NOTERAT_VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "code=$NOTERAT_VERSION_CODE" >> "$GITHUB_OUTPUT"
           cd apps/app/android && ./gradlew assembleRelease
-          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/noterat-android.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/noterat-android-$NOTERAT_VERSION_NAME-$NOTERAT_VERSION_CODE.apk"
 
       - uses: actions/upload-artifact@v7
         with:
           name: noterat-android-${{ steps.apk.outputs.name }}-${{ steps.apk.outputs.code }}
-          path: noterat-android.apk
-
-      # from main, signed with the real key: one release per version name, a newer build replacing its APK
-      - name: Publish
-        if: github.event_name != 'pull_request' && steps.apk.outputs.signed == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: android-v${{ steps.apk.outputs.name }}
-          NAME: ${{ steps.apk.outputs.name }}
-          CODE: ${{ steps.apk.outputs.code }}
-        run: |
-          notes="Noterat for Android $NAME (build $CODE, $(git rev-parse --short HEAD)). Install the APK on the phone; a newer one updates the app in place."
-          if gh release view "$TAG" > /dev/null 2>&1; then
-            gh release edit "$TAG" --notes "$notes"
-          else
-            gh release create "$TAG" --target "$GITHUB_SHA" --title "Noterat for Android $NAME" --notes "$notes" --latest
-          fi
-          gh release upload "$TAG" noterat-android.apk --clobber
+          path: noterat-android-*.apk
+          if-no-files-found: error

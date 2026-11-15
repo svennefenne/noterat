@@ -18,4 +18,8 @@ export const config = {
   /** the languages scans are read in, as Tesseract names them */
   ocrLanguage: process.env.OCR_LANGUAGE || "swe+eng",
   version: process.env.NOTERAT_VERSION || "dev",
+  /** the build: the number of commits (decision 16), as the apps that come with it count theirs */
+  build: Number(process.env.NOTERAT_BUILD) || 0,
+  /** the apps built with this server (in the image: /app/bundled), offered to phones and computers */
+  bundledDir: process.env.BUNDLED_DIR ? path.resolve(process.env.BUNDLED_DIR) : null,
 };

@@ -44,13 +44,15 @@ shell loaded the server's address, so it showed nothing offline.
   the app routes like its own paths.
 - **Android updates from the server**: the newest APK put in the data folder's `app/` (named as CI names
   it, `noterat-android-0.1.0-23.apk`) is offered to every phone on an older build, as a banner with the
-  download; the phone installs it over the old one.
+  download; the phone installs it over the old one. (Since decision 16 the apps come in the server's
+  image and update themselves.)
 
 ## Consequences
 
 - Push needs the admin's ten minutes in the Firebase console once; until then everything works without
   it, and the phones simply don't ask. Changing the Firebase project takes effect at the app's next start.
 - Google sees that a phone got a notification and its few generic words, nothing more.
-- The desktop app keeps its own offline copy, like a phone, and is updated by downloading a new AppImage.
+- The desktop app keeps its own offline copy, like a phone, and is updated by downloading a new AppImage
+  (since decision 16 it does that itself).
 - A web service worker (an offline website) isn't needed for anyone: the phone and the desktop have the
   app inside them, and the website is for when you're at someone else's computer.

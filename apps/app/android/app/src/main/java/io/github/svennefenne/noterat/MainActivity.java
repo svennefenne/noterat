@@ -13,6 +13,7 @@ public class MainActivity extends BridgeActivity {
         if (intent != null && (intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) intent.setData(null);
         // (our own plugins, from this app's code rather than npm, are registered by hand)
         registerPlugin(FirebaseInitPlugin.class);
+        registerPlugin(AppUpdatePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

@@ -17,6 +17,7 @@ import type {
   TranscriberInfo,
   User,
 } from "@noterat/core";
+import type { AppRelease } from "./updates";
 
 /**
  * Talking to the server. On the web the app is served by the server itself, so the API is on the same
@@ -108,7 +109,7 @@ export function signedInApi(base: string, token: string) {
     adminPush: () => at<AdminPush>("/api/admin/push"),
     setAdminPush: (googleServices: string, serviceAccount: string) => at<AdminPush>("/api/admin/push", { method: "PUT", body: { googleServices, serviceAccount } }),
     removeAdminPush: () => at<void>("/api/admin/push", { method: "DELETE" }),
-    androidRelease: () => at<{ versionName: string; versionCode: number; url: string } | null>("/api/app/android"),
+    androidRelease: () => at<(Partial<AppRelease> & { versionName: string; versionCode: number; url: string }) | null>("/api/app/android"),
     mailReady: () => at<{ ready: boolean }>("/api/mail"),
     adminMail: () => at<AdminMail>("/api/admin/mail"),
     setAdminMail: (m: MailSettingsInput) => at<AdminMail>("/api/admin/mail", { method: "PUT", body: m }),
