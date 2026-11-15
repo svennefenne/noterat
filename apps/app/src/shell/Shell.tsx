@@ -7,6 +7,7 @@ import { useInvitations, useLock, useSession, useSyncState } from "../lib/sync-r
 import { pathOf, SECTION } from "../lib/things";
 import { Dialog, Menu, MenuItem, Problem } from "../ui";
 import { LockSettingsForm } from "./LockGate";
+import { MailAdminForm } from "./MailSettings";
 import { NotificationSettingsForm, PushAdminForm } from "./PushSettings";
 import { UpdateBanner } from "./UpdateBanner";
 
@@ -19,7 +20,7 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
   const { user, base, lock } = useSession();
   const { settings } = useLock();
   const [locking, setLocking] = useState(false);
-  const [pushing, setPushing] = useState<"prefs" | "admin" | null>(null);
+  const [pushing, setPushing] = useState<"prefs" | "admin" | "mail" | null>(null);
   return (
     <div className="app">
       <header className="topbar">
@@ -41,6 +42,7 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
             <MenuItem onSelect={() => setLocking(true)}>{t("lock.settings")}</MenuItem>
             <MenuItem onSelect={() => setPushing("prefs")}>{t("push.settings")}</MenuItem>
             {user.role === "admin" && <MenuItem onSelect={() => setPushing("admin")}>{t("push.admin")}</MenuItem>}
+            {user.role === "admin" && <MenuItem onSelect={() => setPushing("mail")}>{t("mail.admin")}</MenuItem>}
             {settings.scope !== "off" && <MenuItem onSelect={() => lock.lockNow()}>{t("lock.now")}</MenuItem>}
             <MenuItem onSelect={onLogout}>{t("menu.logout")}</MenuItem>
           </Menu>
@@ -58,6 +60,9 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
       </Dialog>
       <Dialog open={pushing === "admin"} onClose={() => setPushing(null)} title={t("push.adminTitle")}>
         {pushing === "admin" && <PushAdminForm onDone={() => setPushing(null)} />}
+      </Dialog>
+      <Dialog open={pushing === "mail"} onClose={() => setPushing(null)} title={t("mail.title")}>
+        {pushing === "mail" && <MailAdminForm onDone={() => setPushing(null)} />}
       </Dialog>
     </div>
   );

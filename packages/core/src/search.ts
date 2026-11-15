@@ -2,6 +2,7 @@ import type * as Y from "yjs";
 import type { ObjectType } from "./docs";
 import { entryBody, entryTitle, readEntry } from "./journal";
 import { readBudget } from "./budget";
+import { readSplit } from "./split";
 import { readCalendar } from "./calendar";
 import { readList } from "./lists";
 import { formatAmount } from "./receipts";
@@ -71,6 +72,12 @@ export function searchable(type: ObjectType, id: string, doc: Y.Doc): Searchable
       // (what was bought where is findable; the amounts are in the text as people write them)
       const text = b.transactions.map((x) => [x.date, x.text, formatAmount(Math.abs(x.amount)), x.note].filter(Boolean).join(" · ")).join("\n");
       return { id, type, title: b.title, text, tags: [], at: 0 };
+    }
+    case "split": {
+      const s = readSplit(doc);
+      const names = new Map(s.people.map((p) => [p.id, p.name]));
+      const text = [s.people.map((p) => p.name).join(", "), ...s.expenses.map((e) => [e.date, e.text, names.get(e.paidBy), formatAmount(e.amount)].filter(Boolean).join(" · "))].join("\n");
+      return { id, type, title: s.title, text, tags: [], at: 0 };
     }
     case "journal": {
       const e = readEntry(doc);

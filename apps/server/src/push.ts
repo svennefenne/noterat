@@ -103,14 +103,14 @@ const TEXTS = {
     transcribed: () => "Röstmemot är omskrivet till text.",
     scanned: () => "Dokumentet är inläst och sökbart.",
     test: () => "Push fungerar.",
-    things: { list: "en lista", note: "en anteckning", memo: "ett röstmemo", journal: "en dagbokssida", scan: "ett dokument", recipe: "ett recept", calendar: "en kalender", budget: "en budget" } as Record<string, string>,
+    things: { list: "en lista", note: "en anteckning", memo: "ett röstmemo", journal: "en dagbokssida", scan: "ett dokument", recipe: "ett recept", calendar: "en kalender", budget: "en budget", split: "en kostnadsdelning" } as Record<string, string>,
   },
   en: {
     invitation: (v: Record<string, string>) => `${v.from} shared ${v.what} with you.`,
     transcribed: () => "Your voice memo has been turned into text.",
     scanned: () => "The document has been read and is searchable.",
     test: () => "Push works.",
-    things: { list: "a list", note: "a note", memo: "a voice memo", journal: "a journal page", scan: "a document", recipe: "a recipe", calendar: "a calendar", budget: "a budget" } as Record<string, string>,
+    things: { list: "a list", note: "a note", memo: "a voice memo", journal: "a journal page", scan: "a document", recipe: "a recipe", calendar: "a calendar", budget: "a budget", split: "a cost split" } as Record<string, string>,
   },
 };
 

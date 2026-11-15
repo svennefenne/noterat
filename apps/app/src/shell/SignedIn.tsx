@@ -17,6 +17,7 @@ import { JournalScreen } from "../journal/JournalScreen";
 import { CalendarScreen } from "../calendar/CalendarScreen";
 import { BudgetsScreen } from "../budget/BudgetScreen";
 import { BudgetScreen } from "../budget/BudgetPage";
+import { SplitScreen } from "../split/SplitScreen";
 import { useReminders } from "../calendar/useReminders";
 import { useDesktopNotices, usePush } from "./useNotices";
 import { useDeepLinks } from "../lib/deepLinks";
@@ -115,6 +116,10 @@ export function SignedIn({ base, token, user, onLogout, onExpired }: { base: str
           <Route path="/budget">
             <BudgetsScreen />
           </Route>
+          <Route path="/budget/splits">
+            <BudgetsScreen />
+          </Route>
+          <Route path="/budget/splits/:id">{(p) => <SplitScreen key={p.id} id={p.id} />}</Route>
           <Route path="/budget/:id">{(p) => <BudgetScreen key={p.id} id={p.id} />}</Route>
           <Route path="/search">
             <SearchScreen />

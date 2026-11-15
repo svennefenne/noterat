@@ -28,6 +28,7 @@ import { Dialog, Menu, MenuItem, Problem } from "../ui";
 import { when } from "../memos/MemosScreen";
 import { ScanStatus } from "./ScanStatus";
 import { ToBudget } from "../budget/ToBudget";
+import { ToSplit } from "../split/ToSplit";
 
 const readText = (doc: Y.Doc) => scanText(doc).toString();
 
@@ -113,6 +114,7 @@ function ScanPage({ id, role }: { id: string; role: MemberRole }) {
         <>
           <ReceiptFields doc={doc} receipt={scan.receipt ?? {}} readOnly={readOnly} />
           <ToBudget scanId={id} receipt={scan.receipt ?? {}} />
+          {!readOnly && <ToSplit scanId={id} receipt={scan.receipt ?? {}} />}
         </>
       )}
 
