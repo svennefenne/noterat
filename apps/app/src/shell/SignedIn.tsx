@@ -33,6 +33,7 @@ import { preloadEditor } from "../notes/LazyEditor";
 import { Caught } from "../ui";
 import { LinkScreen } from "../screens/LinkScreen";
 import { LockGate } from "./LockGate";
+import { SettingsScreen } from "./SettingsScreen";
 import { Shell } from "./Shell";
 
 /**
@@ -151,6 +152,7 @@ export function SignedIn({
           <Route path="/budget/splits/:id">{(p) => <SplitScreen key={p.id} id={p.id} />}</Route>
           <Route path="/budget/:id">{(p) => <BudgetScreen key={p.id} id={p.id} />}</Route>
           <Route path="/admin/:section?">{(p) => <AdminScreen section={p.section} />}</Route>
+          <Route path="/settings/:section?">{(p) => <SettingsScreen section={p.section} />}</Route>
           <Route path="/search">
             <SearchScreen />
           </Route>

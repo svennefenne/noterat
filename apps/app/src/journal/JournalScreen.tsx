@@ -4,6 +4,7 @@ import { Link, useLocation } from "wouter";
 import type * as Y from "yjs";
 import { dayOf, entryBody, entryPreview, entryTitle, initEntry, readEntry, type EntryView } from "@noterat/core";
 import { useDates, type Dates } from "../lib/dates";
+import { useLinkedAction } from "../lib/deepLinks";
 import { useI18n } from "../lib/i18n";
 import { useDocsValues, useHomeItems, useSession, useSyncState } from "../lib/sync-react";
 import { useFileUrl } from "../things/useFileUrl";
@@ -44,6 +45,10 @@ export function JournalScreen() {
     const id = sync.create("journal", (doc) => initEntry(doc, { date, by: user.id }));
     navigate(`/journal/${id}`);
   }
+
+  // "Journal" from the plus button (?new=1): an entry about today, as the New button writes one (once
+  // the journal is unlocked: this page isn't shown before)
+  useLinkedAction("new", () => write());
 
   return (
     <div className="screen">

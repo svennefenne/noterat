@@ -12,6 +12,7 @@ import {
   validEmail,
   type MemberRole,
 } from "@noterat/core";
+import { useLinkedAction } from "../lib/deepLinks";
 import { useHousehold } from "../lib/household";
 import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
@@ -50,6 +51,9 @@ function SplitPage({ id, role }: { id: string; role: MemberRole }) {
   const [sharing, setSharing] = useState(false);
   const { away, problem } = useAway("split", id);
   const readOnly = role === "viewer";
+
+  // "Expense" from the plus button (?add=1): the new expense's dialog opens, as the dock's button opens it
+  useLinkedAction("add", () => !readOnly && setEditing({ kind: "expense", id: null }));
 
   if (!sync.isLoaded(name)) return <p className="muted">{t("lists.loading")}</p>;
 

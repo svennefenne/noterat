@@ -1,5 +1,6 @@
 import { Component, useEffect, useId, useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { useCloseOnBack } from "./lib/back";
 import { useI18n } from "./lib/i18n";
 
 /** A screen before the app proper (connect, first account, log in): the name, a card, and the language switch. */
@@ -67,6 +68,7 @@ export function Dialog({ open, onClose, title, children, wide = false }: { open:
   const ref = useRef<HTMLDialogElement>(null);
   const id = useId();
   const { t } = useI18n();
+  useCloseOnBack(open, onClose);
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
@@ -106,6 +108,7 @@ export function Dialog({ open, onClose, title, children, wide = false }: { open:
 export function Menu({ label, icon, children, className = "" }: { label: string; icon: ReactNode; children: ReactNode; className?: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  useCloseOnBack(open, () => setOpen(false));
   useEffect(() => {
     if (!open) return;
     const outside = (e: PointerEvent) => {

@@ -78,10 +78,12 @@ The desktop app shows the same notifications while it runs (in the tray too), wi
 **Administration** (the account menu, for admins; [decision 14](docs/decisions/0014-household-settings-and-admin.md))
 holds the household's accounts (add someone, rename, make an admin, a new password, log out everywhere,
 remove), its look (Noterat's colours or any of Hooden's 98 colour schemes, light, dark or auto; anyone can
-pick their own under *Appearance…*), how days and times are written and the time zone the server goes by,
+pick their own under *Settings*), how days and times are written and the time zone the server goes by,
 Swish on or off for shared costs, push, mail, and which builds of the apps the server offers.
 The app opens on a **start page** with the latest of each section and what's coming in the calendar; the
 admin picks which sections show there, in what order and how many ([decision 15](docs/decisions/0015-start-page.md)).
+On a phone the sections are in the menu left of the name, and a **plus button** makes something new; held
+down, its microphone records a voice memo ([decision 17](docs/decisions/0017-phone-menu-and-plus-button.md)).
 
 ### The desktop app (Linux)
 

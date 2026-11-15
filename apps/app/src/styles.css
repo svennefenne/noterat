@@ -1170,11 +1170,10 @@ select {
   font-size: 1.0625rem;
 }
 
-/* ───────────── sections (phase 2): along the top on a wide screen, a tab bar at the bottom on a phone ───────────── */
+/* ───────────── sections (phase 2): along the top on a wide screen, in the menu on a phone (decision 17) ───────────── */
 
 :root {
   --selection: color-mix(in srgb, var(--accent) 22%, transparent);
-  --tabbar: 64px;
 }
 
 .sections {
@@ -1205,50 +1204,6 @@ select {
   background: var(--accent-soft);
 }
 
-@media (max-width: 719px) {
-  /* (a blurred top bar would hold the tab bar inside it: a filter makes a box the frame for what's fixed) */
-  .topbar {
-    background: var(--bg);
-    backdrop-filter: none;
-  }
-
-  .sections {
-    position: fixed;
-    inset: auto 0 0 0;
-    z-index: 10;
-    justify-content: space-around;
-    margin: 0;
-    padding: 6px max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
-    background: color-mix(in srgb, var(--surface) 94%, transparent);
-    backdrop-filter: blur(8px);
-    border-top: 1px solid var(--line);
-  }
-
-  .section-link {
-    flex: 1;
-    flex-direction: column;
-    gap: 2px;
-    max-width: 140px;
-    min-height: 52px;
-    padding: 4px;
-    font-size: 0.75rem;
-  }
-
-  .section-link[aria-current="page"] {
-    background: transparent;
-  }
-
-  .section-link[aria-current="page"] svg {
-    padding: 2px 14px;
-    box-sizing: content-box;
-    background: var(--accent-soft);
-    border-radius: 999px;
-  }
-
-  .content {
-    padding-bottom: calc(var(--tabbar) + max(24px, env(safe-area-inset-bottom)));
-  }
-}
 
 /* ───────────── finding things: search and filter chips ───────────── */
 
@@ -2126,12 +2081,6 @@ a.icon-button {
   gap: 12px;
 }
 
-@media (max-width: 719px) {
-  .section-link {
-    max-width: 110px;
-  }
-}
-
 .md-plain {
   margin: 0;
   font: inherit;
@@ -2333,16 +2282,7 @@ a.icon-button {
   text-decoration: none;
 }
 
-/* ───────────── many sections (phase 5): "More" on a phone, icons only on a narrow computer ───────────── */
-
-.section-more {
-  display: none;
-}
-
-.section-more .menu-item svg {
-  margin-right: 8px;
-  vertical-align: -4px;
-}
+/* ───────────── many sections (phase 5): icons only on a narrow computer ───────────── */
 
 @media (min-width: 720px) and (max-width: 1179px) {
   .section-link span {
@@ -2351,39 +2291,6 @@ a.icon-button {
 
   .section-link {
     padding: 0 10px;
-  }
-}
-
-@media (max-width: 719px) {
-  .section-link.extra {
-    display: none;
-  }
-
-  .section-more {
-    display: flex;
-    flex: 1;
-    justify-content: center;
-    max-width: 110px;
-  }
-
-  .section-more > .icon-button {
-    flex-direction: column;
-    gap: 2px;
-    width: 100%;
-    height: 52px;
-    min-height: 52px;
-    color: var(--muted);
-    font-size: 0.75rem;
-    border-radius: var(--radius-small);
-  }
-
-  .section-more.here > .icon-button {
-    color: var(--accent);
-  }
-
-  .section-more .menu-list {
-    top: auto;
-    bottom: calc(100% + 8px);
   }
 }
 
@@ -3583,7 +3490,7 @@ p.to-budget {
 
 @media (max-width: 719px) {
   .split-dock {
-    bottom: calc(var(--tabbar) + max(0px, env(safe-area-inset-bottom) - 6px));
+    bottom: 0;
     margin-inline: calc(-1 * max(16px, env(safe-area-inset-left)));
     padding: 10px max(16px, env(safe-area-inset-left));
     border-width: 1px 0 0;
@@ -4774,4 +4681,516 @@ p.to-budget a,
     grid-row: 2;
     justify-self: start;
   }
+}
+
+/* ───────────── the phone's menu and plus button (decision 17) ───────────── */
+
+.topbar-menu {
+  display: none;
+}
+
+@media (max-width: 719px) {
+  .topbar-menu {
+    display: inline-flex;
+    margin: 0 -6px 0 -8px;
+  }
+
+  /* the name right beside the menu button, the rest to the right */
+  .topbar-brand {
+    margin-right: auto;
+  }
+
+  .sections {
+    display: none;
+  }
+
+  /* room under the last thing on a page, above the plus button */
+  .content {
+    padding-bottom: calc(max(12px, env(safe-area-inset-bottom)) + 120px);
+  }
+
+  .split-dock {
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+}
+
+/* the menu: a panel from the left over the dimmed page */
+.drawer {
+  inset: 0 auto 0 0;
+  width: min(320px, 86vw);
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  color: var(--text);
+  background: var(--surface);
+  border: none;
+  border-right: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.drawer[open] {
+  animation: drawer-in 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.drawer::backdrop {
+  background: rgb(0 0 0 / 0.4);
+  animation: fade-in 200ms ease-out;
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.drawer-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: max(8px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+}
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  margin-bottom: 8px;
+  padding-left: 6px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.drawer-head img {
+  border-radius: 8px;
+}
+
+.drawer-head .icon-button {
+  margin-left: auto;
+}
+
+.drawer-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* the start page, then the sections */
+.drawer-list > li:first-child {
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.drawer-link {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 48px;
+  padding: 0 14px;
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: var(--radius-small);
+}
+
+.drawer-link svg {
+  color: var(--muted);
+}
+
+.drawer-link:hover {
+  background: var(--hover);
+}
+
+.drawer-link[aria-current="page"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.drawer-link[aria-current="page"] svg {
+  color: var(--accent);
+}
+
+/* the plus button: low on the thumb's side, on a phone only */
+.plus {
+  display: none;
+}
+
+@media (max-width: 719px) {
+  .plus {
+    --plus-size: 60px;
+    position: fixed;
+    right: max(20px, env(safe-area-inset-right));
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 28px);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 16px;
+    /* (the stack's empty space lets taps through to the page) */
+    pointer-events: none;
+  }
+
+  .plus.left {
+    right: auto;
+    left: max(20px, env(safe-area-inset-left));
+    align-items: flex-start;
+  }
+
+  .plus > * {
+    pointer-events: auto;
+  }
+
+  /* above a page's own bar along the bottom */
+  .app:has(.split-dock) .plus {
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 84px);
+  }
+
+  /* out of the way while something is being written (the keyboard is up) */
+  .app:has(input:focus, textarea:focus, select:focus, [contenteditable="true"]:focus) .plus:not(.open) {
+    display: none;
+  }
+}
+
+.plus-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  animation: fade-in 200ms ease-out;
+}
+
+.plus-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.plus.left .plus-row,
+.plus.left .plus-item {
+  flex-direction: row-reverse;
+}
+
+.plus-main,
+.plus-mic {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 8px 20px rgb(0 0 0 / 0.2), 0 2px 6px rgb(0 0 0 / 0.14);
+}
+
+.plus-main {
+  width: var(--plus-size);
+  height: var(--plus-size);
+  min-height: var(--plus-size);
+  color: var(--accent-text);
+  background: var(--accent);
+  transition:
+    background-color 200ms ease-out,
+    color 200ms ease-out,
+    transform 120ms ease-out;
+}
+
+.plus-main svg {
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* open: the plus turns into a close, and the microphone above it is the one to press */
+.plus.open .plus-main {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.plus.open .plus-main svg {
+  transform: rotate(45deg);
+}
+
+.plus-main:active:not(:disabled),
+.plus-item:active .plus-icon {
+  transform: scale(0.94);
+}
+
+.plus-main:disabled {
+  opacity: 0.5;
+}
+
+.plus-mic {
+  position: relative;
+  isolation: isolate;
+  width: 56px;
+  height: 56px;
+  min-height: 56px;
+  margin-inline: calc((var(--plus-size) - 56px) / 2);
+  color: var(--accent-text);
+  background: var(--accent);
+  /* (held, not tapped: no text picked, no menu, no scrolling the page) */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition:
+    background-color 160ms ease-out,
+    transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: plus-rise 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* recording: red and a little bigger, with a ring that swells with the voice */
+.plus.recording .plus-mic {
+  color: var(--surface);
+  background: var(--danger);
+  transform: scale(1.12);
+}
+
+.plus-ring {
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  background: color-mix(in srgb, var(--danger) 30%, transparent);
+  border-radius: inherit;
+  opacity: 0;
+  transition:
+    opacity 160ms ease-out,
+    transform 80ms linear;
+}
+
+.plus.recording .plus-ring {
+  opacity: 1;
+}
+
+.plus-items {
+  display: flex;
+  flex-direction: column;
+  align-items: inherit;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  transition: opacity 160ms ease-out;
+}
+
+.plus.recording .plus-items {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.plus-items li {
+  animation: plus-rise 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i) * 24ms);
+}
+
+@keyframes plus-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+}
+
+.plus-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-inline: calc((var(--plus-size) - 44px) / 2);
+  padding: 0;
+  color: var(--text);
+  font: inherit;
+  background: none;
+  border: none;
+}
+
+.plus-label {
+  padding: 7px 14px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+}
+
+.plus-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+  transition: transform 120ms ease-out;
+}
+
+.plus-item:hover .plus-icon,
+.plus-item:hover .plus-label {
+  background: var(--accent-soft);
+}
+
+.plus-main:focus-visible,
+.plus-mic:focus-visible,
+.plus-item:focus-visible .plus-icon {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.plus-item:focus-visible {
+  outline: none;
+}
+
+/* what the button says: hold it, it's recording, it's saved */
+.plus-bubble {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 120px);
+  min-height: 40px;
+  padding: 8px 16px;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  animation: plus-rise 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.plus-bubble.problem {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+  border-radius: var(--radius);
+}
+
+.plus-bubble a {
+  color: var(--accent);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+
+.plus-bubble.recording {
+  padding-left: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.plus-bubble.recording .rec-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+}
+
+.plus-bubble.away {
+  color: var(--danger);
+}
+
+.plus-clock {
+  font-weight: 700;
+}
+
+.plus-level {
+  flex: none;
+  width: 40px;
+  height: 4px;
+  overflow: hidden;
+  background: var(--line);
+  border-radius: 2px;
+}
+
+.plus-level span {
+  display: block;
+  height: 100%;
+  background: var(--danger);
+  transform-origin: left;
+}
+
+.plus-say {
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer[open],
+  .drawer::backdrop,
+  .plus-scrim,
+  .plus-mic,
+  .plus-items li,
+  .plus-bubble {
+    animation: none;
+  }
+
+  .plus-main svg,
+  .plus-ring {
+    transition: none;
+  }
+}
+
+/* "Expense" from the plus button: which budget or split it goes in */
+.choose-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.choose-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 12px;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+}
+
+.choose-item:hover {
+  background: var(--hover);
+}
+
+.choose-item > svg:first-child {
+  flex: none;
+  color: var(--accent);
+}
+
+.choose-item > svg:last-child {
+  flex: none;
+  color: var(--muted);
+}
+
+.choose-item > span {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.choose-item small {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.settings-saved {
+  min-height: 1.5em;
+  margin: 8px 0 0;
 }

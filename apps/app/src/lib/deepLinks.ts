@@ -60,19 +60,20 @@ export function useDeepLinks() {
 }
 
 /**
- * A page's part of such a link: when its address asks for `what` (?record=1), `act` runs once, as if
- * the page's own button had been pressed. The query is taken off the address first, so going back or
- * reloading doesn't do it again.
+ * A page's part of such a link (and of the plus button's choices): when its address asks for `what`
+ * (?record=1), `act` runs once, as if the page's own button had been pressed; with `ready` false (what
+ * it needs isn't on the device yet) it waits. The query is taken off the address first, so going back
+ * or reloading doesn't do it again.
  */
-export function useLinkedAction(what: string, act: () => void) {
+export function useLinkedAction(what: string, act: () => void, ready = true) {
   const search = useSearch();
   const [path, navigate] = useLocation();
   const onLinked = useEffectEvent(act);
 
   useEffect(() => {
     // (the address as it is now, not as it was rendered: StrictMode runs this twice in a row)
-    if (new URLSearchParams(window.location.search).get(what) !== "1") return;
+    if (!ready || new URLSearchParams(window.location.search).get(what) !== "1") return;
     navigate(path, { replace: true });
     onLinked();
-  }, [what, search, path, navigate]);
+  }, [what, search, path, navigate, ready]);
 }

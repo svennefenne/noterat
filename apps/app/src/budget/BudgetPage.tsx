@@ -28,6 +28,7 @@ import {
   type MemberRole,
 } from "@noterat/core";
 import { useDates } from "../lib/dates";
+import { useLinkedAction } from "../lib/deepLinks";
 import { useI18n } from "../lib/i18n";
 import { useDocValue, useSession } from "../lib/sync-react";
 import { TitleInput } from "../notes/NoteScreen";
@@ -65,6 +66,13 @@ function BudgetPage({ id, role }: { id: string; role: MemberRole }) {
   const { away, problem } = useAway("budget", id);
   const readOnly = role === "viewer";
   const sum = monthSummary(view, month);
+  // (the new transaction's dialog: from the transactions' own button, or the plus button's "Expense")
+  const [adding, setAdding] = useState(false);
+  useLinkedAction("add", () => {
+    if (readOnly) return;
+    setTab("transactions");
+    setAdding(true);
+  });
   const kr = (n: number) => `${formatAmount(n, lang)} kr`;
 
   if (!sync.isLoaded(name)) return <p className="muted">{t("lists.loading")}</p>;
@@ -146,7 +154,7 @@ function BudgetPage({ id, role }: { id: string; role: MemberRole }) {
       </div>
 
       {tab === "month" && <MonthTab doc={doc} view={view} month={month} readOnly={readOnly} />}
-      {tab === "transactions" && <TransactionsTab doc={doc} view={view} month={month} readOnly={readOnly} />}
+      {tab === "transactions" && <TransactionsTab doc={doc} view={view} month={month} readOnly={readOnly} adding={adding} setAdding={setAdding} />}
       {tab === "plans" && <PlansTab doc={doc} view={view} month={month} readOnly={readOnly} />}
       {tab === "report" && <Report view={view} month={month} />}
 
@@ -259,10 +267,23 @@ function MonthTab({ doc, view, month, readOnly }: { doc: Y.Doc; view: BudgetView
 }
 
 /** The month's transactions: each one's category (picked in place, and remembered for its text), a receipt, a note. */
-function TransactionsTab({ doc, view, month, readOnly }: { doc: Y.Doc; view: BudgetView; month: string; readOnly: boolean }) {
+function TransactionsTab({
+  doc,
+  view,
+  month,
+  readOnly,
+  adding,
+  setAdding,
+}: {
+  doc: Y.Doc;
+  view: BudgetView;
+  month: string;
+  readOnly: boolean;
+  adding: boolean;
+  setAdding: (on: boolean) => void;
+}) {
   const { t, lang } = useI18n();
   const [only, setOnly] = useState<"all" | "none">("all");
-  const [adding, setAdding] = useState(false);
   const list = view.transactions.filter((x) => x.date.startsWith(month)).filter((x) => only === "all" || !x.category);
   return (
     <div>
