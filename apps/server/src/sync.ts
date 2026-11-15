@@ -4,6 +4,7 @@ import { Hocuspocus, type Connection } from "@hocuspocus/server";
 import crossws from "crossws/adapters/node";
 import * as Y from "yjs";
 import {
+  DESKTOP_HELLO,
   docTitle,
   homeDocName,
   homeInvitations,
@@ -12,6 +13,7 @@ import {
   parseDocName,
   type Invitation,
   type MemberRole,
+  type Notice,
   type ObjectType,
   type User,
 } from "@noterat/core";
@@ -32,6 +34,8 @@ export interface SyncContext {
   role?: MemberRole;
   /** a change made by the server itself (sharing) */
   server?: true;
+  /** a desktop app's home document: it gets the server's notices (notice()) */
+  desktop?: true;
 }
 
 /** Why a document was refused, as the app gets it (onAuthenticationFailed's reason). */
@@ -67,6 +71,12 @@ export function createSync(db: DB, o: { debounce?: number; maxDebounce?: number 
       if (!role) throw refuse("forbidden");
       connectionConfig.readOnly = role === "viewer";
       return { user: s.user, role } satisfies SyncContext;
+    },
+
+    // (a desktop app says hello on its home document, and gets the notices there from then on)
+    async onStateless({ connection, documentName, payload }) {
+      const context = connection.context as SyncContext | undefined;
+      if (payload === DESKTOP_HELLO && context?.user && documentName === homeDocName(context.user.id)) context.desktop = true;
     },
 
     async onLoadDocument({ documentName, document }) {
@@ -168,6 +178,16 @@ export function createSync(db: DB, o: { debounce?: number; maxDebounce?: number 
     removeFromHome: (userId: number, objectId: string) => changeHome(userId, (d) => homeItems(d).delete(objectId)),
     addInvitation: (userId: number, invitation: Invitation) => changeHome(userId, (d) => homeInvitations(d).set(invitation.id, invitation)),
     removeInvitation: (userId: number, id: string) => changeHome(userId, (d) => homeInvitations(d).delete(id)),
+
+    /** A notice for someone's desktop apps that are running (decision 12): how many it went to. */
+    notice(userId: number, notice: Notice): number {
+      const doc = hocuspocus.documents.get(homeDocName(userId));
+      if (!doc) return 0;
+      const desktop = (c: Connection) => (c.context as SyncContext | undefined)?.desktop === true;
+      const n = [...doc.connections.keys()].filter(desktop).length;
+      if (n) doc.broadcastStateless(JSON.stringify(notice), desktop);
+      return n;
+    },
 
     /**
      * Someone's access to a thing changed: their open connections to it follow at once. With a role, a

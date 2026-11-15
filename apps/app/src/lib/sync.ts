@@ -2,7 +2,7 @@ import { HocuspocusProvider, HocuspocusProviderWebsocket } from "@hocuspocus/pro
 import { IndexeddbPersistence } from "y-indexeddb";
 import * as Y from "yjs";
 import type { Awareness } from "y-protocols/awareness";
-import { homeDocName, homeItems, newObjectId, objectDocName, parseDocName, readMemo, type MemberRole, type ObjectType } from "@noterat/core";
+import { DESKTOP_HELLO, homeDocName, homeItems, newObjectId, objectDocName, parseDocName, readMemo, readNotice, type MemberRole, type Notice, type ObjectType } from "@noterat/core";
 import { Files, type Upload } from "./files";
 
 /**
@@ -18,6 +18,9 @@ import { Files, type Upload } from "./files";
  * "forbidden" or "deleted" (it's not theirs any more).
  *
  * Files (recordings) go the same way beside them (files.ts): kept on the device, sent when online.
+ *
+ * The desktop app (notices) says hello on the home document whenever it's let in, and the server's
+ * notices come there (decision 12): onNotice.
  */
 
 export type Connection = "online" | "connecting" | "offline";
@@ -53,9 +56,11 @@ export class Sync {
   private readonly listeners = new Set<() => void>();
   private readonly prefix: string;
   private state: SyncState = { connection: "connecting", waiting: 0, homeLoaded: false };
+  private readonly noticeListeners = new Set<(n: Notice) => void>();
   private destroyed = false;
 
-  constructor(private readonly o: { base: string; token: string; userId: number; onLoggedOut: () => void }) {
+  /** notices: this device shows the server's notices itself (the desktop app; a phone gets push) */
+  constructor(private readonly o: { base: string; token: string; userId: number; onLoggedOut: () => void; notices?: boolean }) {
     this.userId = o.userId;
     // (a device can be used with more than one server and account: each has its own documents)
     this.prefix = `noterat/${new URL(o.base || location.origin).host}/${o.userId}/`;
@@ -88,6 +93,12 @@ export class Sync {
   };
 
   getState = () => this.state;
+
+  /** The server's notices, on a device that shows them itself (notices): an invitation, a memo transcribed… */
+  onNotice(listener: (n: Notice) => void) {
+    this.noticeListeners.add(listener);
+    return () => void this.noticeListeners.delete(listener);
+  }
 
   private update(patch: Partial<SyncState>) {
     const waiting = [...this.open.values()].filter((e) => e.provider.hasUnsyncedChanges).length;
@@ -182,6 +193,14 @@ export class Sync {
       onUnsyncedChanges: () => this.update({}),
       onSynced: () => this.update({}),
     });
+    if (this.o.notices && name === homeDocName(this.o.userId)) {
+      // (each time it's let in: a new connection is a new hello)
+      provider.on("authenticated", () => provider.sendStateless(DESKTOP_HELLO));
+      provider.on("stateless", ({ payload }: { payload: string }) => {
+        const n = readNotice(payload);
+        if (n && !this.destroyed) this.noticeListeners.forEach((l) => l(n));
+      });
+    }
     provider.attach();
     const entry: Open = { doc, local, provider, loaded: false };
     this.open.set(name, entry);
@@ -245,6 +264,7 @@ export class Sync {
     this.open.clear();
     this.socket.destroy();
     this.listeners.clear();
+    this.noticeListeners.clear();
     await this.files.destroy(o);
   }
 }

@@ -137,7 +137,7 @@ export function createApp(o: AppOptions) {
     return c.body(null, 204);
   });
 
-  const push = pushRoutes(app, { db, fetch: o.pushFetch });
+  const push = pushRoutes(app, { db, fetch: o.pushFetch, notice: (userId, n) => o.sync.notice(userId, n) });
   shareRoutes(app, { db, sync: o.sync, publicUrl: o.publicUrl, push });
 
   const store = fileStore(o.dataDir);

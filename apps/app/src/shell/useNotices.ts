@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { isDesktop } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { canPush, startPush } from "../lib/push";
-import { useInvitations, useSession } from "../lib/sync-react";
+import { useSession } from "../lib/sync-react";
 
 /** Push on the phone: started once signed in (if the server has it), taps lead into the app. */
 export function usePush() {
@@ -30,31 +30,28 @@ export function usePush() {
 }
 
 /**
- * On the desktop the app lives in the tray, so a new invitation is shown as the system's notification
- * when the window isn't in front (the phone gets a push for it instead).
+ * On the desktop the app lives in the tray, so the server's notices (the ones a phone gets a push for:
+ * an invitation, a memo turned into text, a scan read, a test) are the system's notifications while it
+ * runs. They come over the sync connection (Sync's notices), sent as the person chose, quiet hours too.
  */
 export function useDesktopNotices() {
   const { t } = useI18n();
-  const invitations = useInvitations();
+  const { sync } = useSession();
   const [, navigate] = useLocation();
-  const seen = useRef<Set<string> | null>(null);
+  const go = useRef(navigate);
+  useEffect(() => {
+    go.current = navigate;
+  });
   useEffect(() => {
     if (!isDesktop || typeof Notification === "undefined") return;
-    const ids = new Set(invitations.map((i) => i.id));
-    // (the ones there when the app started were seen already)
-    if (seen.current === null) {
-      seen.current = ids;
-      return;
-    }
-    for (const i of invitations) {
-      if (seen.current.has(i.id)) continue;
-      if (document.hasFocus()) continue;
-      const n = new Notification("Noterat", { body: t("push.invitation", { from: i.from.displayName, what: t(`push.thing.${i.type}`) }), tag: i.id });
-      n.onclick = () => {
+    return sync.onNotice((n) => {
+      const body =
+        n.notice === "invitation" ? t("push.invitation", { from: n.from ?? "", what: n.type ? t(`push.thing.${n.type}`) : "" }) : t(`push.notice.${n.notice}`);
+      const shown = new Notification("Noterat", { body });
+      shown.onclick = () => {
         window.focus();
-        navigate("/");
+        go.current(n.url);
       };
-    }
-    seen.current = ids;
-  }, [invitations, navigate, t]);
+    });
+  }, [sync, t]);
 }
