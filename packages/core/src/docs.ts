@@ -6,8 +6,8 @@ import type * as Y from "yjs";
  * maker becomes its owner. Each person also has a home document, "home/<user id>" (see home.ts).
  */
 
-/** The kinds of thing there are (lists from phase 1, notes and voice memos from phase 2, journal entries from phase 3, scans from phase 4, recipes from phase 5, calendars from phase 6; the others arrive with their phases). */
-export const OBJECT_TYPES = ["list", "note", "memo", "journal", "scan", "recipe", "calendar"] as const;
+/** The kinds of thing there are (lists from phase 1, notes and voice memos from phase 2, journal entries from phase 3, scans from phase 4, recipes from phase 5, calendars from phase 6, budgets from phase 7). */
+export const OBJECT_TYPES = ["list", "note", "memo", "journal", "scan", "recipe", "calendar", "budget"] as const;
 export type ObjectType = (typeof OBJECT_TYPES)[number];
 export const isObjectType = (t: unknown): t is ObjectType => OBJECT_TYPES.includes(t as ObjectType);
 

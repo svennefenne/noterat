@@ -1,6 +1,7 @@
 import type * as Y from "yjs";
 import type { ObjectType } from "./docs";
 import { entryBody, entryTitle, readEntry } from "./journal";
+import { readBudget } from "./budget";
 import { readCalendar } from "./calendar";
 import { readList } from "./lists";
 import { formatAmount } from "./receipts";
@@ -64,6 +65,12 @@ export function searchable(type: ObjectType, id: string, doc: Y.Doc): Searchable
     case "calendar": {
       const c = readCalendar(doc);
       return { id, type, title: c.title, text: c.events.map((e) => [e.start.slice(0, 10), e.title, e.location, e.notes].filter(Boolean).join(" · ")).join("\n"), tags: [], at: 0 };
+    }
+    case "budget": {
+      const b = readBudget(doc);
+      // (what was bought where is findable; the amounts are in the text as people write them)
+      const text = b.transactions.map((x) => [x.date, x.text, formatAmount(Math.abs(x.amount)), x.note].filter(Boolean).join(" · ")).join("\n");
+      return { id, type, title: b.title, text, tags: [], at: 0 };
     }
     case "journal": {
       const e = readEntry(doc);
