@@ -1,6 +1,6 @@
 import { Directory, Filesystem } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
-import { isApp } from "./api";
+import { isNative } from "./api";
 
 /**
  * A file the app made (a recipe's PDF, a scan's PDF) out to the person: a download on the web; in the
@@ -8,7 +8,7 @@ import { isApp } from "./api";
  */
 export async function saveOrShare(blob: Blob, filename: string, title: string): Promise<void> {
   const name = filename.replace(/[\\/:*?"<>|]+/g, " ").trim() || "noterat";
-  if (!isApp) {
+  if (!isNative) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = name;

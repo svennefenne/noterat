@@ -137,6 +137,28 @@ const MIGRATIONS: string[] = [
     created_at integer not null
   );
   `,
+  /* 7: push notifications (phase 8) */ `
+  -- the server's own settings (the Firebase project's files, pasted in by an admin)
+  create table settings (key text primary key, value text not null);
+
+  -- each device's FCM token, tied to the session it was registered in: logging out forgets it
+  create table push_devices (
+    token text primary key,
+    user_id integer not null references users(id) on delete cascade,
+    session_id text references sessions(id) on delete cascade,
+    platform text not null,
+    lang text not null default 'sv',
+    created_at integer not null,
+    seen_at integer not null
+  );
+  create index push_devices_user on push_devices(user_id);
+
+  -- what each person wants pushed, and their quiet hours (JSON)
+  create table push_prefs (
+    user_id integer primary key references users(id) on delete cascade,
+    prefs text not null
+  );
+  `,
 ];
 
 /** Open (or make) the database at file (":memory:" for tests), brought up to the latest schema. */

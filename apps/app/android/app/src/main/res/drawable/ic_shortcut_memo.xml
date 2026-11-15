@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A launcher shortcut's icon on Android 7.1 (from Android 8 an adaptive icon, in drawable-v26) -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="@color/quick_actions_button" />
+            <size
+                android:width="48dp"
+                android:height="48dp" />
+        </shape>
+    </item>
+    <item
+        android:drawable="@drawable/ic_quick_memo"
+        android:gravity="center" />
+</layer-list>

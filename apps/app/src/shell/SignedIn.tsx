@@ -17,6 +17,8 @@ import { CalendarScreen } from "../calendar/CalendarScreen";
 import { BudgetsScreen } from "../budget/BudgetScreen";
 import { BudgetScreen } from "../budget/BudgetPage";
 import { useReminders } from "../calendar/useReminders";
+import { useDesktopNotices, usePush } from "./useNotices";
+import { useDeepLinks } from "../lib/deepLinks";
 import { RecipeScreen } from "../recipes/RecipeScreen";
 import { RecipesScreen } from "../recipes/RecipesScreen";
 import { ScanScreen } from "../scans/ScanScreen";
@@ -63,7 +65,7 @@ export function SignedIn({ base, token, user, onLogout, onExpired }: { base: str
 
   return (
     <SessionProvider user={user} base={base} token={token} sync={sync} lock={lock}>
-      <Reminders />
+      <Background />
       <LockGate what="app" onLogout={() => void logout()}>
       <Shell onLogout={() => void logout()}>
         <Caught fallback={<Broken />}>
@@ -141,8 +143,11 @@ function Broken() {
   );
 }
 
-/** (the phone's calendar reminders, kept up to date while the app runs) */
-function Reminders() {
+/** (what runs while signed in: calendar reminders kept up to date, push, the desktop's notifications) */
+function Background() {
   useReminders();
+  usePush();
+  useDesktopNotices();
+  useDeepLinks();
   return null;
 }

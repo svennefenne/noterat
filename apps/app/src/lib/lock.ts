@@ -2,7 +2,7 @@ import { NativeBiometric } from "@capgo/capacitor-native-biometric";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 import { randomHex } from "@noterat/core";
-import { isApp } from "./api";
+import { isNative } from "./api";
 
 /**
  * The lock in front of the journal, or the whole app (decision 7): this device's, for this person on
@@ -34,7 +34,7 @@ const pinHash = (salt: string, pin: string) => bytesToHex(sha256(utf8ToBytes(`${
 
 /** Whether this device can open the lock with the fingerprint (or the phone's own screen lock). */
 export async function biometricAvailable(): Promise<boolean> {
-  if (!isApp) return false;
+  if (!isNative) return false;
   try {
     return (await NativeBiometric.isAvailable({ useFallback: true })).isAvailable;
   } catch {

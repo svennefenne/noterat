@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="quick_actions_surface">#201E1C</color>
+    <color name="quick_actions_accent">#8CC5B0</color>
+    <color name="quick_actions_button">#22322D</color>
+    <color name="quick_actions_ripple">#338CC5B0</color>
+</resources>

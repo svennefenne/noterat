@@ -1,0 +1,62 @@
+{
+  "name": "noterat-desktop",
+  "productName": "Noterat",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Noterat on the Linux desktop: the app's own web build in an Electron window, in the tray when it's closed.",
+  "author": "svennefenne",
+  "type": "module",
+  "main": "src/main.js",
+  "scripts": {
+    "web": "node scripts/copy-web.mjs",
+    "start": "npm run web && electron .",
+    "test": "node --test \"test/*.test.js\"",
+    "dist": "npm run web && electron-builder --linux AppImage --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "45.3.2",
+    "electron-builder": "26.18.0"
+  },
+  "allowScripts": {
+    "electron-winstaller@5.4.0": false
+  },
+  "desktopName": "io.github.svennefenne.noterat.desktop",
+  "build": {
+    "appId": "io.github.svennefenne.noterat",
+    "productName": "Noterat",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**",
+      "web/**",
+      "assets/**",
+      "package.json"
+    ],
+    "asar": true,
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "onlyLoadAppFromAsar": true,
+      "grantFileProtocolExtraPrivileges": false
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "executableName": "noterat",
+      "syncDesktopName": true,
+      "icon": "assets/icon.png",
+      "category": "Office",
+      "synopsis": "Shared notes, lists, calendar and budget",
+      "artifactName": "noterat-desktop-${version}-x86_64.${ext}"
+    },
+    "publish": null
+  }
+}

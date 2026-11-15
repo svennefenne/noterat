@@ -5,15 +5,16 @@ scanning app. Self-hosted in a Docker container (made for Unraid), with an Andro
 of everything on the phone: it works offline and catches up when it's back online. Nothing is shared
 until you share it, and what you share is live for everyone in it.
 
-**Status: phase 7 of 8: Lists, notes, voice memos, the journal, documents, recipes, the calendar, the
-budget, and search.** Lists of your own making (as in Hooden); notes in Markdown, written together live; voice memos,
-turned into text by KB-Whisper on the server's GPU; a journal with text, photos and voice clips; a
-scanner for documents and receipts; recipes imported from a link, scaled and put on the shopping list;
-and calendars, shared (a family calendar) or subscribed to (any ICS address, and the phone's own), with
-repeats, reminders and a private feed for other calendar apps; and a household budget, month by month
-(envelopes or zero-based), filled from the bank's CSV export and from receipts. Search finds words in all of it, offline
-too; the journal (or the whole app) can be locked with the fingerprint. Next are push notifications and the desktop app; see
-[the plan](docs/PLAN.md) and [the decisions behind it](docs/decisions/).
+**Status: all 8 phases: Lists, notes, voice memos, the journal, documents, recipes, the calendar, the
+budget, search, push notifications, and a desktop app.** Lists of your own making (as in Hooden); notes
+in Markdown, written together live; voice memos, turned into text by KB-Whisper on the server's GPU; a
+journal with text, photos and voice clips; a scanner for documents and receipts; recipes imported from a
+link, scaled and put on the shopping list; calendars, shared (a family calendar) or subscribed to (any
+ICS address, and the phone's own), with repeats, reminders and a private feed for other calendar apps;
+and a household budget, month by month (envelopes or zero-based), filled from the bank's CSV export and
+from receipts. Search finds words in all of it, offline too; the journal (or the whole app) can be locked
+with the fingerprint. Push notifications go through your own Firebase project; the Linux desktop app
+works offline like the phone; see [the plan](docs/PLAN.md) and [the decisions behind it](docs/decisions/).
 
 ## Run it
 
@@ -52,6 +53,22 @@ the signing key is set up: see [`.github/workflows/android.yml`](.github/workflo
 its first screen the app asks for the server's address; a server at home can be plain
 `http://192.168.x.x:3300` on the local network. The APK is built for 64-bit ARM phones only (all from
 the last several years), which keeps it small: ML Kit's text recognition is a large native library.
+
+**Updates**: put a newer APK (as CI names it, `noterat-android-0.1.0-23.apk`) in the appdata folder's
+`app/` and every phone on an older build offers it at the top of the app.
+
+**Push notifications** go through your own (free) Firebase project, so nothing about Firebase is built
+into the APK. As the admin, open the account menu → *Push (Firebase)…* and follow the three steps: create a
+project with an Android app named `io.github.svennefenne.noterat`, then pick its `google-services.json`
+and a service account's private key (Project settings → Service accounts). The phones start Firebase
+with it at their next start and ask for permission. Each person picks what they're told about, and
+quiet hours, under *Notifications…*; a push only ever says that something happened, never what's in it.
+
+### The desktop app (Linux)
+
+The Desktop workflow builds an AppImage (under Actions). It has the app inside it, so it opens and works
+offline like the phone, asks for the server's address the first time, lives in the tray and can start at
+log-in. See [`apps/desktop`](apps/desktop/README.md).
 
 ## Develop
 

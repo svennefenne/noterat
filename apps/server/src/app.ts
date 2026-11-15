@@ -6,8 +6,10 @@ import { createSession, dummyHash, endSession, hashPassword, LoginThrottle, veri
 import type { DB } from "./db";
 import { fileRoutes, fileStore } from "./files";
 import { Fail, readBody, signedIn, text, type Env } from "./http";
+import { appUpdateRoutes } from "./appUpdates";
 import { calendarRoutes } from "./calendars";
 import { createJobs } from "./jobs";
+import { pushRoutes } from "./push";
 import { recipeImport, type FetchPage } from "./recipes";
 import { shareRoutes } from "./sharing";
 import type { Sync } from "./sync";
@@ -38,6 +40,8 @@ export interface AppOptions {
   workerLease?: number;
   /** (tests: how pages are fetched; else only from the internet) */
   fetchPage?: FetchPage;
+  /** (tests: how Google's push endpoints are reached) */
+  pushFetch?: typeof fetch;
 }
 
 /**
@@ -133,7 +137,8 @@ export function createApp(o: AppOptions) {
     return c.body(null, 204);
   });
 
-  shareRoutes(app, { db, sync: o.sync, publicUrl: o.publicUrl });
+  const push = pushRoutes(app, { db, fetch: o.pushFetch });
+  shareRoutes(app, { db, sync: o.sync, publicUrl: o.publicUrl, push });
 
   const store = fileStore(o.dataDir);
   const recipes = recipeImport({ db, sync: o.sync, store, fetchPage: o.fetchPage });
@@ -147,11 +152,18 @@ export function createApp(o: AppOptions) {
     wait: o.workerWait,
     lease: o.workerLease,
     onRecipe: recipes.fromWorker,
+    // (a memo turned into text, or a scan read, is worth a push: the person may have put the phone away)
+    onDone: (kind, obj) => {
+      if (kind === "transcribe" && obj.type === "memo") void push.notify(obj.owner_id, "transcribed", {}, `/memos/${obj.id}`);
+      if (kind === "ocr" && obj.type === "scan") void push.notify(obj.owner_id, "scanned", {}, `/scans/${obj.id}`);
+    },
   });
   fileRoutes(app, { db, store, onUploaded: jobs.onUploaded });
   jobs.routes(app);
   recipes.routes(app, jobs);
   const calendars = calendarRoutes(app, { db, sync: o.sync, publicUrl: o.publicUrl, fetchPage: o.fetchPage });
+
+  appUpdateRoutes(app, { dataDir: o.dataDir });
 
   app.all("/api/*", () => {
     throw new Fail("not_found", 404);
@@ -159,5 +171,5 @@ export function createApp(o: AppOptions) {
 
   if (o.webDir) app.get("*", webFiles(o.webDir));
 
-  return Object.assign(app, { jobs, calendars });
+  return Object.assign(app, { jobs, calendars, push });
 }

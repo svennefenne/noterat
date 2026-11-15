@@ -2,7 +2,7 @@ import { Capacitor } from "@capacitor/core";
 import { DocumentScanner } from "@capacitor-mlkit/document-scanner";
 import { TextRecognition } from "@capacitor-mlkit/text-recognition";
 import { MAX_PAGES } from "@noterat/core";
-import { isApp } from "./api";
+import { isNative } from "./api";
 import { shrinkPhoto } from "./images";
 
 /**
@@ -22,7 +22,7 @@ export interface ScannedPage {
   text: string;
 }
 
-export const canScanOnPhone = isApp && Capacitor.getPlatform() === "android";
+export const canScanOnPhone = isNative && Capacitor.getPlatform() === "android";
 
 /** ML Kit's scanner comes from Google Play services; the first time, it may have to be downloaded. */
 async function scannerReady(): Promise<void> {

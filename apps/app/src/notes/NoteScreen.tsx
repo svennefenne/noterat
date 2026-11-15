@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Eye, MoreVertical, PenLine, Pin, PinOff, Share2, X } from "lucide-react";
 import type * as Y from "yjs";
 import { addTag, noteBody, noteTitle, objectDocName, readNote, removeTag, setNoteTitle, setPrefs, touchNote, type MemberRole } from "@noterat/core";
-import { isApp } from "../lib/api";
+import { isNative } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { useDocValue, useHomePrefs, useSession, useSyncState } from "../lib/sync-react";
 import { Back, NotHere, useAway, usePresence, useThing } from "../things/parts";
@@ -92,7 +92,7 @@ function NotePage({ id, role }: { id: string; role: MemberRole }) {
             </button>
             <Menu label={t("list.more")} icon={<MoreVertical aria-hidden size={20} />}>
               <MenuItem onSelect={() => setFiling(true)}>{prefs.folder ? t("note.folderIs", { folder: prefs.folder }) : t("note.toFolder")}</MenuItem>
-              {!isApp && <MenuItem onSelect={download}>{t("note.download")}</MenuItem>}
+              {!isNative && <MenuItem onSelect={download}>{t("note.download")}</MenuItem>}
               {navigator.clipboard && <MenuItem onSelect={() => void navigator.clipboard.writeText(body)}>{t("note.copy")}</MenuItem>}
               {role === "owner" ? (
                 <MenuItem danger onSelect={() => void away("delete", t("note.deleteConfirm"))}>

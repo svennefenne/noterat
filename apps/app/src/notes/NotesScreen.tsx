@@ -3,6 +3,7 @@ import { Folder, Pin, Plus, Search, Users } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import type * as Y from "yjs";
 import { initNote, noteBody, notePreview, noteTitle, readNote, setPrefs, type NoteView } from "@noterat/core";
+import { useLinkedAction } from "../lib/deepLinks";
 import { useI18n } from "../lib/i18n";
 import { useDocsValues, useHomeItems, useHomePrefs, useSession, useSyncState } from "../lib/sync-react";
 import { useStored } from "../ui";
@@ -44,6 +45,9 @@ export function NotesScreen() {
     if (active.startsWith("folder:")) setPrefs(sync.home, id, { folder: active.slice(7) });
     navigate(`/notes/${id}`);
   }
+
+  // "New note" from the home screen (?new=1): one is made and opened, as the New button does
+  useLinkedAction("new", make);
 
   const chip = (value: string, label: string, icon?: ReactNode) => (
     <button key={value} type="button" className="chip" aria-pressed={active === value} onClick={() => setFilter(active === value ? "" : value)}>

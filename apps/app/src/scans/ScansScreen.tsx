@@ -3,6 +3,7 @@ import { Camera, FileText, ImagePlus, Receipt, ScanLine, Users } from "lucide-re
 import { Link, useLocation } from "wouter";
 import type * as Y from "yjs";
 import { formatAmount, initScan, readScan, scanText, scanTitle, type ScanKind, type ScanView } from "@noterat/core";
+import { useLinkedAction } from "../lib/deepLinks";
 import { hashOf } from "../lib/files";
 import { useI18n } from "../lib/i18n";
 import { canScanOnPhone, photosAsPages, scanOnPhone, type ScannedPage } from "../lib/scanner";
@@ -66,6 +67,13 @@ export function ScansScreen() {
       setBusy(false);
     }
   }
+
+  // "Scan" from the home screen (?scan=1): the scanner opens as its button opens it. (Only on the phone,
+  // where those links come from: the website's buttons open a file picker, which a browser opens only
+  // for a tap.)
+  useLinkedAction("scan", () => {
+    if (canScanOnPhone && !busy) void scan(scanOnPhone);
+  });
 
   const picked = (e: ChangeEvent<HTMLInputElement>) => {
     const files = [...(e.target.files ?? [])];

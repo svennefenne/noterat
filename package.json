@@ -6,7 +6,8 @@
   "description": "Shared notes, journal, voice memos, lists, finances, calendar, recipes and a receipt and document scanner. Self-hosted and offline first.",
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/app",
+    "apps/server"
   ],
   "scripts": {
     "dev": "node scripts/dev.mjs",

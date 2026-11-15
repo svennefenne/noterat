@@ -1,6 +1,6 @@
 import { CalendarPermissionScope, CapacitorCalendar } from "@ebarooni/capacitor-calendar";
 import { wallOf, type CalEvent } from "@noterat/core";
-import { isApp } from "./api";
+import { isNative } from "./api";
 
 /**
  * The phone's own calendars (Google, Exchange… whatever Android shows), read on the phone and shown
@@ -13,10 +13,10 @@ export interface PhoneCalendar {
   color: string;
 }
 
-export const canReadPhone = isApp;
+export const canReadPhone = isNative;
 
 export async function phoneAccess(ask: boolean): Promise<boolean> {
-  if (!isApp) return false;
+  if (!isNative) return false;
   try {
     const { result } = ask ? await CapacitorCalendar.requestReadOnlyCalendarAccess() : await CapacitorCalendar.checkPermission({ scope: CalendarPermissionScope.READ_CALENDAR });
     return result === "granted";

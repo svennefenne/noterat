@@ -15,7 +15,7 @@ import {
   type Page,
   type ReceiptGuess,
 } from "@noterat/core";
-import { ApiError, isApp } from "../lib/api";
+import { ApiError, isNative } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { useDocValue, useSession, useSyncState } from "../lib/sync-react";
 import { MarkdownEditor } from "../notes/LazyEditor";
@@ -192,7 +192,7 @@ function PdfLink({ hash, title }: { hash: string; title: string }) {
   };
   return (
     <button type="button" className="secondary small pdf-link" onClick={() => void out()}>
-      <FileDown aria-hidden size={16} /> {t(isApp ? "scan.pdfShare" : "scan.pdf")}
+      <FileDown aria-hidden size={16} /> {t(isNative ? "scan.pdfShare" : "scan.pdf")}
     </button>
   );
 }
