@@ -24,13 +24,17 @@ shell loaded the server's address, so it showed nothing offline.
 - **A push says that something happened, never what's in it**: "Ada shared a list with you", "your voice
   memo has been turned into text", "the document has been read". Not the list's name, not the text. Each
   person picks the kinds (invitations on, transcriptions on, scans off by default) and quiet hours, kept on
-  the server, which does the sending; in quiet hours nothing is pushed (the app still shows it).
+  the server, which does the sending; in quiet hours nothing is pushed (the app still shows it). A push
+  is shown while the app is open as well (Capacitor's `presentationOptions`), like any other app's.
 - **The desktop app is Electron with the web app inside it** (`apps/desktop`), served from a privileged
   `app://noterat` scheme, so it opens and works offline exactly like the phone: the same IndexedDB copy,
   the server picked at log-in, the bearer token across origins. It lives in the tray (closing the window
   hides it), can start at log-in (an XDG autostart file, since Electron's own setting does nothing on
   Linux), opens links in the browser, and allows the microphone, the camera and notifications only. Calendar
-  reminders and new invitations are the system's notifications while it runs. It's built by CI as an
+  reminders, and the same notices a phone gets a push for, are the system's notifications while it runs.
+  Those notices need no Firebase: the app says hello on its home document, which it always has open, and
+  the server sends each one there as a stateless message, after the same choices and quiet hours (a phone
+  and the website don't say hello, so they get none that way). It's built by CI as an
   AppImage. It isn't a workspace of the monorepo, so the server's image and CI never download Electron.
 - **`isNative` and `isApp` are two things now**: `isNative` (the phone: scanner, fingerprint, sharing a
   file) and `isApp` (the phone or the desktop: the server is elsewhere and asked for).

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { type AdminPush, type PushKind, type PushPrefs } from "../lib/api";
+import { isDesktop, type AdminPush, type PushKind, type PushPrefs } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { canPush } from "../lib/push";
 import { useSession } from "../lib/sync-react";
@@ -34,7 +34,7 @@ export function NotificationSettingsForm({ onDone }: { onDone: () => void }) {
   const quiet = prefs.quietFrom !== "" && prefs.quietTo !== "";
   return (
     <form onSubmit={save} className="stack">
-      <p className="muted small-text">{t(canPush ? "push.about" : "push.aboutWeb")}</p>
+      <p className="muted small-text">{t(canPush ? "push.about" : isDesktop ? "push.aboutDesktop" : "push.aboutWeb")}</p>
       <fieldset className="checks">
         <legend>{t("push.which")}</legend>
         {KINDS.map((k) => (
@@ -58,7 +58,7 @@ export function NotificationSettingsForm({ onDone }: { onDone: () => void }) {
           </label>
         </div>
       )}
-      {canPush && (
+      {(canPush || isDesktop) && (
         <p className="small-text">
           <button
             type="button"

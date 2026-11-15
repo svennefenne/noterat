@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Redirect, Route, Switch } from "wouter";
 import type { User } from "@noterat/core";
+import { isDesktop } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { AppLock } from "../lib/lock";
 import { Sync } from "../lib/sync";
@@ -40,7 +41,7 @@ export function SignedIn({ base, token, user, onLogout, onExpired }: { base: str
   const [made, setMade] = useState<{ sync: Sync; lock: AppLock } | null>(null);
 
   useEffect(() => {
-    const sync = new Sync({ base, token, userId: user.id, onLoggedOut: onExpired });
+    const sync = new Sync({ base, token, userId: user.id, onLoggedOut: onExpired, notices: isDesktop });
     const lock = new AppLock(`noterat.lock/${new URL(base || location.origin).host}/${user.id}`);
     // (made here, not while rendering: it opens a connection and must be closed when this goes, and
     // StrictMode mounts twice)

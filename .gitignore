@@ -18,3 +18,7 @@ __pycache__
 /dls
 # the desktop app's copy of the web build (apps/desktop: npm run dist; the AppImage goes to its dist/)
 /apps/desktop/web
+# Firebase files for push (decision 12): pasted into the app's admin dialog, never committed; the
+# service account's key is a secret
+google-services.json
+*firebase-adminsdk*.json

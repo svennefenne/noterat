@@ -63,6 +63,7 @@ project with an Android app named `io.github.svennefenne.noterat`, then pick its
 and a service account's private key (Project settings → Service accounts). The phones start Firebase
 with it at their next start and ask for permission. Each person picks what they're told about, and
 quiet hours, under *Notifications…*; a push only ever says that something happened, never what's in it.
+The desktop app shows the same notifications while it runs (in the tray too), with or without Firebase.
 
 ### The desktop app (Linux)
 

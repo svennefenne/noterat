@@ -54,3 +54,43 @@ export function setPrefs(doc: Y.Doc, id: string, patch: Partial<ItemPrefs>) {
   if (Object.keys(next).length === 0) homePrefs(doc).delete(id);
   else homePrefs(doc).set(id, next);
 }
+
+// ───────────── notices on the desktop ─────────────
+
+/**
+ * The desktop app shows the same notices a phone gets a push for, while it runs (decision 12). It says
+ * hello on its home document once it's let in, and the server sends each notice there as a stateless
+ * message, on the connection the app always has open: no Firebase, nothing else to keep open. A phone
+ * (which gets a push) and the website don't say hello, so they get none.
+ */
+export const DESKTOP_HELLO = "noterat:desktop";
+
+export type NoticeKind = "invitation" | "transcribed" | "scanned" | "test";
+
+/** What happened (never what's in it), and where a click leads: a path in the app. */
+export interface Notice {
+  notice: NoticeKind;
+  url: string;
+  /** an invitation's: who shared, and what kind of thing */
+  from?: string;
+  type?: ObjectType;
+}
+
+const NOTICE_KINDS: readonly string[] = ["invitation", "transcribed", "scanned", "test"] satisfies NoticeKind[];
+
+export function readNotice(payload: string): Notice | null {
+  let n: Partial<Record<keyof Notice, unknown>>;
+  try {
+    n = JSON.parse(payload) as typeof n;
+  } catch {
+    return null;
+  }
+  if (typeof n !== "object" || n === null || typeof n.notice !== "string" || !NOTICE_KINDS.includes(n.notice)) return null;
+  const url = typeof n.url === "string" && n.url.startsWith("/") && !n.url.startsWith("//") ? n.url : "/";
+  return {
+    notice: n.notice as NoticeKind,
+    url,
+    ...(typeof n.from === "string" ? { from: n.from } : {}),
+    ...(typeof n.type === "string" ? { type: n.type as ObjectType } : {}),
+  };
+}

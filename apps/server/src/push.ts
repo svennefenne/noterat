@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type { Hono } from "hono";
+import type { Notice, ObjectType } from "@noterat/core";
 import type { DB } from "./db";
 import { Fail, readBody, signedIn, text, type Env } from "./http";
 
@@ -11,7 +12,8 @@ import { Fail, readBody, signedIn, text, type Env } from "./http";
  * key) and signs its own OAuth token with it, so no Google library is needed.
  *
  * What's sent says that something happened, never what's in it: "Ada shared a list with you", "your
- * voice memo has been transcribed". Each person picks which kinds they want, and quiet hours.
+ * voice memo has been transcribed". Each person picks which kinds they want, and quiet hours. The same
+ * notices go to their desktop apps that are running, over the sync connection (no Firebase needed).
  */
 
 export const PUSH_KINDS = ["invitation", "transcribed", "scanned"] as const;
@@ -114,6 +116,8 @@ const TEXTS = {
 
 export interface PushOptions {
   db: DB;
+  /** the notice to someone's running desktop apps (sync.ts): how many it went to */
+  notice?: (userId: number, notice: Notice) => number;
   /** for tests: Google's endpoints */
   fetch?: typeof fetch;
   now?: () => Date;
@@ -187,14 +191,14 @@ export function pushRoutes(app: Hono<Env>, o: PushOptions) {
    */
   async function notify(userId: number, kind: PushKind | "test", vars: Record<string, string> = {}, url = "/"): Promise<number> {
     try {
-      const sa = account();
-      if (!sa) return 0;
       if (kind !== "test") {
         const prefs = prefsOf(userId);
         if (!prefs.kinds[kind] || inQuietHours(prefs, now())) return 0;
       }
+      let sent = o.notice?.(userId, { notice: kind, url, ...(vars.from ? { from: vars.from } : {}), ...(vars.type ? { type: vars.type as ObjectType } : {}) }) ?? 0;
+      const sa = account();
+      if (!sa) return sent;
       const devices = db.prepare("select token, lang from push_devices where user_id = ?").all(userId) as { token: string; lang: string }[];
-      let sent = 0;
       for (const d of devices) {
         const t = d.lang === "en" ? TEXTS.en : TEXTS.sv;
         const body = t[kind]({ ...vars, what: t.things[vars.type ?? ""] ?? vars.type ?? "" });
@@ -247,7 +251,7 @@ export function pushRoutes(app: Hono<Env>, o: PushOptions) {
     return c.json(p);
   });
 
-  /** A test push to my own devices (to see that it works). */
+  /** A test push to my own devices, phones and running desktop apps (to see that it works). */
   app.post("/api/push/test", auth, async (c) => c.json({ sent: await notify(c.get("user").id, "test") }));
 
   // ───────────── the admin ─────────────

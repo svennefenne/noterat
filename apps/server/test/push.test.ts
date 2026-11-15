@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { initList, newObjectId, objectDocName, type ShareReply } from "@noterat/core";
+import { DESKTOP_HELLO, homeDocName, initList, newObjectId, objectDocName, readNotice, type Notice, type ShareReply } from "@noterat/core";
 import { inQuietHours, readGoogleServices } from "../src/push";
 import { account, call, device, startServer, synced, until } from "./helpers";
 
@@ -111,6 +111,61 @@ describe("push", () => {
     await call(base, "POST", "/api/push/devices", ada.token, { token: "ada-phone" });
     await call(base, "POST", "/api/logout", ada.token);
     expect(db.prepare("select count(*) as n from push_devices").get()).toEqual({ n: 0 });
+  });
+
+  it("reaches a running desktop app over its sync connection, without Firebase", async () => {
+    const { db, base } = await startServer();
+    const ada = await account(db, "ada");
+    const bo = await account(db, "bo");
+    // Bo's desktop app says hello on its home document; his phone's app (no hello) gets push instead
+    const desktop = device(base, bo.token)(homeDocName(bo.user.id));
+    const phone = device(base, bo.token)(homeDocName(bo.user.id));
+    const notices: Notice[] = [];
+    const phoneGot: string[] = [];
+    desktop.provider.on("stateless", ({ payload }: { payload: string }) => notices.push(readNotice(payload)!));
+    phone.provider.on("stateless", ({ payload }: { payload: string }) => phoneGot.push(payload));
+    await Promise.all([synced(desktop.provider), synced(phone.provider)]);
+    desktop.provider.sendStateless(DESKTOP_HELLO);
+
+    // (until the hello has arrived, the test reaches nothing)
+    const end = Date.now() + 4000;
+    while ((await call<{ sent: number }>(base, "POST", "/api/push/test", bo.token)).json.sent === 0) {
+      if (Date.now() > end) throw new Error("the desktop's hello never arrived");
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    await until(() => notices.length === 1, "the test notice on Bo's desktop");
+    expect(notices[0]).toEqual({ notice: "test", url: "/" });
+
+    notices.length = 0;
+    const id = newObjectId();
+    const list = device(base, ada.token)(objectDocName("list", id));
+    initList(list.doc, { title: "Inköp", columns: [{ name: "Vara", type: "text" as const }], by: ada.user.id });
+    await synced(list.provider);
+    await call<ShareReply>(base, "POST", `/api/objects/${id}/share`, ada.token, { role: "editor", userId: bo.user.id });
+    await until(() => notices.length === 1, "the invitation on Bo's desktop");
+    expect(notices[0]).toEqual({ notice: "invitation", from: "Ada", type: "list", url: "/" });
+
+    // the same choices as the phone's: invitations off, none comes
+    await call(base, "PUT", "/api/push/prefs", bo.token, { kinds: { invitation: false }, quietFrom: "", quietTo: "" });
+    const other = newObjectId();
+    const second = device(base, ada.token)(objectDocName("list", other));
+    initList(second.doc, { title: "Packlista", columns: [{ name: "Vara", type: "text" as const }], by: ada.user.id });
+    await synced(second.provider);
+    await call(base, "POST", `/api/objects/${other}/share`, ada.token, { role: "viewer", userId: bo.user.id });
+    await new Promise((r) => setTimeout(r, 200));
+    expect(notices).toHaveLength(1);
+    expect(phoneGot).toEqual([]);
+  });
+});
+
+describe("a notice as the desktop app reads it", () => {
+  it("takes only what it knows, and a path in the app", () => {
+    expect(readNotice('{"notice":"scanned","url":"/scans/x"}')).toEqual({ notice: "scanned", url: "/scans/x" });
+    expect(readNotice('{"notice":"invitation","url":"https://evil.example","from":"Ada","type":"list"}')).toEqual({ notice: "invitation", url: "/", from: "Ada", type: "list" });
+    expect(readNotice('{"notice":"invitation","url":"//evil.example"}')?.url).toBe("/");
+    expect(readNotice('{"notice":"rm -rf"}')).toBeNull();
+    expect(readNotice("not json")).toBeNull();
+    expect(readNotice("null")).toBeNull();
   });
 });
 
