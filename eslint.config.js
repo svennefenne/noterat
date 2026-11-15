@@ -6,7 +6,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "apps/app/android/**", ".data/**", "data/**"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "apps/app/android/**", "apps/desktop/web/**", ".data/**", "data/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

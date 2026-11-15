@@ -7,6 +7,8 @@ import { useInvitations, useLock, useSession, useSyncState } from "../lib/sync-r
 import { pathOf, SECTION } from "../lib/things";
 import { Dialog, Menu, MenuItem, Problem } from "../ui";
 import { LockSettingsForm } from "./LockGate";
+import { NotificationSettingsForm, PushAdminForm } from "./PushSettings";
+import { UpdateBanner } from "./UpdateBanner";
 
 /**
  * The signed-in app's frame: the name (home), the sections (along the top on a wide screen, at the
@@ -17,6 +19,7 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
   const { user, base, lock } = useSession();
   const { settings } = useLock();
   const [locking, setLocking] = useState(false);
+  const [pushing, setPushing] = useState<"prefs" | "admin" | null>(null);
   return (
     <div className="app">
       <header className="topbar">
@@ -36,14 +39,25 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
             {isApp && <div className="menu-text muted">{t("menu.server", { server: new URL(base).host })}</div>}
             <MenuItem onSelect={() => setLang(lang === "sv" ? "en" : "sv")}>{t("lang.other")}</MenuItem>
             <MenuItem onSelect={() => setLocking(true)}>{t("lock.settings")}</MenuItem>
+            <MenuItem onSelect={() => setPushing("prefs")}>{t("push.settings")}</MenuItem>
+            {user.role === "admin" && <MenuItem onSelect={() => setPushing("admin")}>{t("push.admin")}</MenuItem>}
             {settings.scope !== "off" && <MenuItem onSelect={() => lock.lockNow()}>{t("lock.now")}</MenuItem>}
             <MenuItem onSelect={onLogout}>{t("menu.logout")}</MenuItem>
           </Menu>
         </div>
       </header>
-      <main className="content">{children}</main>
+      <main className="content">
+        <UpdateBanner />
+        {children}
+      </main>
       <Dialog open={locking} onClose={() => setLocking(false)} title={t("lock.settings")}>
         <LockSettingsForm onDone={() => setLocking(false)} />
+      </Dialog>
+      <Dialog open={pushing === "prefs"} onClose={() => setPushing(null)} title={t("push.title")}>
+        {pushing === "prefs" && <NotificationSettingsForm onDone={() => setPushing(null)} />}
+      </Dialog>
+      <Dialog open={pushing === "admin"} onClose={() => setPushing(null)} title={t("push.adminTitle")}>
+        {pushing === "admin" && <PushAdminForm onDone={() => setPushing(null)} />}
       </Dialog>
     </div>
   );

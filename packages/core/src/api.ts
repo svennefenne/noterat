@@ -72,7 +72,12 @@ export type ErrorCode =
   // recipes (phase 5)
   | "fetch_failed"
   | "not_public"
-  | "no_recipe";
+  | "no_recipe"
+  // push (phase 8)
+  | "push_bad_google_services"
+  | "push_bad_service_account"
+  | "push_project_mismatch"
+  | "push_key_refused";
 
 export interface ApiErrorBody {
   error: ErrorCode;

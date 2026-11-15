@@ -27,11 +27,11 @@ afterEach(async () => {
   for (const stop of stops.splice(0).reverse()) await stop();
 });
 
-export async function startServer(o: { workerToken?: string; workerWait?: number; workerLease?: number; fetchPage?: FetchPage } = {}) {
+export async function startServer(o: { workerToken?: string; workerWait?: number; workerLease?: number; fetchPage?: FetchPage; pushFetch?: typeof fetch } = {}) {
   const db = openDb(":memory:");
   const sync = createSync(db, { debounce: 20, maxDebounce: 100 });
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "noterat-test-"));
-  const app = createApp({ db, sync, version: "test", webDir: null, trustedIpHeader: "", publicUrl: "", dataDir, workerToken: o.workerToken, workerWait: o.workerWait ?? 300, workerLease: o.workerLease, fetchPage: o.fetchPage });
+  const app = createApp({ db, sync, version: "test", webDir: null, trustedIpHeader: "", publicUrl: "", dataDir, workerToken: o.workerToken, workerWait: o.workerWait ?? 300, workerLease: o.workerLease, fetchPage: o.fetchPage, pushFetch: o.pushFetch });
   const server = await new Promise<Server>((resolve) => {
     const s = serve({ fetch: app.fetch, port: 0, hostname: "127.0.0.1" }, () => resolve(s as Server));
   });

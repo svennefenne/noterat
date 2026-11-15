@@ -126,7 +126,7 @@ then mostly a document type and its screens.
 | 5 | Recipes | A recipe imported from a URL puts its ingredients on the shopping list and exports as a PDF ✅ (arla.se, in a browser; on Unraid) |
 | 6 | Calendar | Other calendars show beside your own; a shared family calendar ✅ (ICS subscriptions, the phone's calendars, a shared calendar in tests and a browser) |
 | 7 | Finances | A monthly budget with CSV import and receipts linked to transactions ✅ (a Swedbank-style export imported twice without doubles, a scanned receipt booked, in tests and a browser) |
-| 8 | Push notifications, desktop app, widgets, polish | Notifications arrive with the app closed; the Linux desktop app works offline like the phone |
+| 8 | Push notifications, desktop app, widgets, polish | Notifications arrive with the app closed; the Linux desktop app works offline like the phone ✅ in tests (FCM played by a fake that checks the server's signature) and CI's builds; push on the phones once a Firebase project is pasted in |
 
 Lists come first because they're the smallest section that still tests the hardest requirement:
 offline, live and shared at once. If the architecture holds there, it holds everywhere.

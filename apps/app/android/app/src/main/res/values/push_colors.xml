@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- a push's accent in the notification shade (the app's own green) -->
+    <color name="push_accent">#2F5D50</color>
+</resources>

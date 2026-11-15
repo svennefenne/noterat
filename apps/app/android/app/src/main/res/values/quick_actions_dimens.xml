@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The widget's corners (on Android 12 and later the launcher's own, in values-v31) -->
+<resources>
+    <dimen name="quick_actions_radius">20dp</dimen>
+    <dimen name="quick_actions_inner_radius">12dp</dimen>
+</resources>

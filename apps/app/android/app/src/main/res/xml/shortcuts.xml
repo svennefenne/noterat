@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launcher's shortcuts (a long press on the app's icon): ways in, nothing from the app shown. Each
+     opens a noterat:// link, which the app follows (src/lib/deepLinks.ts); the same as the widget's. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_memo"
+        android:shortcutId="memo"
+        android:shortcutLongLabel="@string/quick_memo"
+        android:shortcutShortLabel="@string/quick_memo_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="noterat://memos?record=1"
+            android:targetClass="io.github.svennefenne.noterat.MainActivity"
+            android:targetPackage="io.github.svennefenne.noterat" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_scan"
+        android:shortcutId="scan"
+        android:shortcutLongLabel="@string/quick_scan"
+        android:shortcutShortLabel="@string/quick_scan_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="noterat://scans?scan=1"
+            android:targetClass="io.github.svennefenne.noterat.MainActivity"
+            android:targetPackage="io.github.svennefenne.noterat" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_note"
+        android:shortcutId="note"
+        android:shortcutLongLabel="@string/quick_note"
+        android:shortcutShortLabel="@string/quick_note_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="noterat://notes?new=1"
+            android:targetClass="io.github.svennefenne.noterat.MainActivity"
+            android:targetPackage="io.github.svennefenne.noterat" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_lists"
+        android:shortcutId="lists"
+        android:shortcutLongLabel="@string/quick_lists"
+        android:shortcutShortLabel="@string/quick_lists_short">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="noterat://lists"
+            android:targetClass="io.github.svennefenne.noterat.MainActivity"
+            android:targetPackage="io.github.svennefenne.noterat" />
+    </shortcut>
+</shortcuts>

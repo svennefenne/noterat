@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- English for the launcher's shortcuts and the home-screen widget (Swedish, the default, in values/) -->
+<resources>
+    <string name="quick_memo">New voice memo</string>
+    <string name="quick_memo_short">Voice memo</string>
+    <string name="quick_scan">Scan</string>
+    <string name="quick_scan_short">Scan</string>
+    <string name="quick_note">New note</string>
+    <string name="quick_note_short">New note</string>
+    <string name="quick_lists">Lists</string>
+    <string name="quick_lists_short">Lists</string>
+    <string name="widget_name">Quick actions</string>
+    <string name="widget_description">Record a voice memo, scan, write a note or open the lists in one tap. Shows nothing from the app.</string>
+</resources>

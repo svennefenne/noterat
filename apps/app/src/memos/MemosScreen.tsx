@@ -1,7 +1,9 @@
+import { useRef } from "react";
 import { Users } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import type * as Y from "yjs";
 import { initMemo, memoText, memoTitle, readMemo, type MemoView } from "@noterat/core";
+import { useLinkedAction } from "../lib/deepLinks";
 import { hashOf } from "../lib/files";
 import { useI18n } from "../lib/i18n";
 import { useDocsValues, useHomeItems, useSession, useSyncState } from "../lib/sync-react";
@@ -77,6 +79,11 @@ function NewMemo() {
   const { sync, user } = useSession();
   const [, navigate] = useLocation();
   const [auto] = useAutoTranscribe();
+  const panel = useRef<HTMLDivElement>(null);
+
+  // "New voice memo" from the home screen (?record=1): the record button is pressed, so recording starts
+  // just as a tap starts it (the microphone asked for the first time; nothing while one is going already)
+  useLinkedAction("record", () => panel.current?.querySelector<HTMLButtonElement>(".rec-button")?.click());
 
   async function keep(blob: Blob, duration: number, title: string) {
     const hash = await hashOf(blob);
@@ -87,5 +94,9 @@ function NewMemo() {
     navigate(`/memos/${id}`);
   }
 
-  return <RecordPanel onRecorded={keep} />;
+  return (
+    <div ref={panel}>
+      <RecordPanel onRecorded={keep} />
+    </div>
+  );
 }

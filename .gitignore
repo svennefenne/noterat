@@ -16,3 +16,5 @@ __pycache__
 .pytest_cache
 # files downloaded to try (the APK)
 /dls
+# the desktop app's copy of the web build (apps/desktop: npm run dist; the AppImage goes to its dist/)
+/apps/desktop/web

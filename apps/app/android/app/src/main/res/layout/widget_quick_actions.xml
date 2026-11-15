@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The quick-actions widget (QuickActionsWidget): four buttons into the app, nothing from it shown.
+     Also the widget picker's preview on Android 12 and later. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_quick_actions_background"
+    android:gravity="center"
+    android:orientation="horizontal"
+    android:padding="8dp">
+
+    <ImageView
+        android:id="@+id/quick_memo"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:background="@drawable/widget_quick_actions_button"
+        android:contentDescription="@string/quick_memo"
+        android:scaleType="center"
+        android:src="@drawable/ic_quick_memo" />
+
+    <ImageView
+        android:id="@+id/quick_scan"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="6dp"
+        android:layout_weight="1"
+        android:background="@drawable/widget_quick_actions_button"
+        android:contentDescription="@string/quick_scan"
+        android:scaleType="center"
+        android:src="@drawable/ic_quick_scan" />
+
+    <ImageView
+        android:id="@+id/quick_note"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="6dp"
+        android:layout_weight="1"
+        android:background="@drawable/widget_quick_actions_button"
+        android:contentDescription="@string/quick_note"
+        android:scaleType="center"
+        android:src="@drawable/ic_quick_note" />
+
+    <ImageView
+        android:id="@+id/quick_lists"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="6dp"
+        android:layout_weight="1"
+        android:background="@drawable/widget_quick_actions_button"
+        android:contentDescription="@string/quick_lists"
+        android:scaleType="center"
+        android:src="@drawable/ic_quick_lists" />
+</LinearLayout>

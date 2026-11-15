@@ -60,6 +60,8 @@ export interface JobOptions {
   ocrLanguage?: string;
   /** a recipe the worker read, to be put in its document (recipes.ts) */
   onRecipe?: (objectId: string, recipe: Record<string, unknown>) => Promise<void>;
+  /** a job done (for a push to the thing's owner) */
+  onDone?: (kind: JobRow["kind"], obj: ObjectRow) => void;
   lease?: number;
   maxTries?: number;
   wait?: number;
@@ -293,6 +295,7 @@ export function createJobs(o: JobOptions) {
         if (!recipe) throw new Fail("bad_request", 400);
         db.prepare("update jobs set status = 'done', error = null, updated_at = ? where id = ?").run(Date.now(), job.id);
         if (obj && !obj.deleted_at && obj.type === "recipe") await o.onRecipe?.(obj.id, recipe);
+        if (obj && !obj.deleted_at) o.onDone?.(job.kind, obj);
         return c.body(null, 204);
       }
       if (job.kind === "ocr") {
@@ -308,6 +311,7 @@ export function createJobs(o: JobOptions) {
           await sync.changeObject("scan", obj.id, (d) =>
             putOcrResult(d, { text: result, pages, pdf: pdfHash ? { hash: pdfHash, size: fileRow(db, pdfHash)!.size } : null, language: text(body.language) || undefined }),
           );
+        if (obj && !obj.deleted_at) o.onDone?.(job.kind, obj);
         return c.body(null, 204);
       }
       db.prepare("update jobs set status = 'done', error = null, updated_at = ? where id = ?").run(Date.now(), job.id);
@@ -315,6 +319,7 @@ export function createJobs(o: JobOptions) {
         await sync.changeObject(obj.type, obj.id, (d) =>
           putTranscriptFor(obj.type, d, job.hash, result, { language: text(body.language) || undefined, model: text(body.model) || undefined }),
         );
+      if (obj && !obj.deleted_at) o.onDone?.(job.kind, obj);
       return c.body(null, 204);
     });
 

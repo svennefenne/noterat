@@ -17,7 +17,7 @@ import {
   type MemberRole,
   type Photo,
 } from "@noterat/core";
-import { ApiError, isApp } from "../lib/api";
+import { ApiError, isNative } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { shrinkPhoto } from "../lib/images";
 import { useDocValue, useSession, useSyncState } from "../lib/sync-react";
@@ -149,7 +149,7 @@ function EntryPage({ id, role }: { id: string; role: MemberRole }) {
           {!readOnly && entry.photos.length < MAX_PHOTOS && (
             <div className="entry-section-actions">
               {/* (straight to the camera on a phone: capture; a computer would only offer files) */}
-              {(isApp || matchMedia("(pointer: coarse)").matches) && (
+              {(isNative || matchMedia("(pointer: coarse)").matches) && (
                 <>
                   <button type="button" className="secondary small" onClick={() => camera.current?.click()} disabled={adding > 0}>
                     <Camera aria-hidden size={16} /> {t("entry.takePhoto")}

@@ -22,6 +22,7 @@ import type { DB } from "./db";
 import { Fail, publicAddress, readBody, signedIn, text, type Env } from "./http";
 import { addMember, deleteObject, membersOf, objectRow, people, person, removeMember, roleOf, setRole, type ObjectRow } from "./objects";
 import type { Sync } from "./sync";
+import type { Push } from "./push";
 import { createUser, userByUsername } from "./users";
 
 /**
@@ -55,7 +56,7 @@ interface InviteRow {
 
 const inviteState = (i: InviteRow): LinkInfo["status"] => (i.used_at ? "used" : i.expires_at <= Date.now() ? "expired" : "open");
 
-export function shareRoutes(app: Hono<Env>, o: { db: DB; sync: Sync; publicUrl: string }) {
+export function shareRoutes(app: Hono<Env>, o: { db: DB; sync: Sync; publicUrl: string; push?: Push }) {
   const { db, sync } = o;
   const auth = signedIn(db);
 
@@ -156,6 +157,7 @@ export function shareRoutes(app: Hono<Env>, o: { db: DB; sync: Sync; publicUrl: 
     );
     const invitation: Invitation = { id, objectId: obj.id, type: obj.type, title: sync.titleOf(obj), role: body.role, from: { id: me.id, displayName: me.displayName }, at: t };
     await sync.addInvitation(to.id, invitation);
+    void o.push?.notify(to.id, "invitation", { from: me.displayName, type: obj.type }, "/");
     return c.json({ kind: "invitation", id } satisfies ShareReply, 201);
   });
 

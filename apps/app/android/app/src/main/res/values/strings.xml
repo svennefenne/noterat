@@ -4,4 +4,16 @@
     <string name="title_activity_main">Noterat</string>
     <string name="package_name">io.github.svennefenne.noterat</string>
     <string name="custom_url_scheme">io.github.svennefenne.noterat</string>
+
+    <!-- the launcher's shortcuts and the home-screen widget: in Swedish here, in English in values-en -->
+    <string name="quick_memo">Nytt röstmemo</string>
+    <string name="quick_memo_short">Röstmemo</string>
+    <string name="quick_scan">Skanna</string>
+    <string name="quick_scan_short">Skanna</string>
+    <string name="quick_note">Ny anteckning</string>
+    <string name="quick_note_short">Anteckning</string>
+    <string name="quick_lists">Listor</string>
+    <string name="quick_lists_short">Listor</string>
+    <string name="widget_name">Snabbknappar</string>
+    <string name="widget_description">Spela in ett röstmemo, skanna, skriv en anteckning eller öppna listorna med ett tryck. Visar inget ur appen.</string>
 </resources>

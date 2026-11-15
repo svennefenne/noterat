@@ -1,0 +1,46 @@
+name: Desktop app
+
+# The Linux desktop app (apps/desktop): Electron with the app's web build inside, as an AppImage.
+on:
+  push:
+    branches: [main]
+    paths: ["apps/desktop/**", "apps/app/**", "packages/**", "package-lock.json", ".github/workflows/desktop.yml"]
+  pull_request:
+    paths: ["apps/desktop/**", "apps/app/**", "packages/**", "package-lock.json", ".github/workflows/desktop.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  appimage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/desktop/package-lock.json
+
+      - run: npm ci --no-audit --no-fund
+      - name: Build the app's web build
+        run: npm run build -w @noterat/app
+
+      # (apps/desktop isn't one of the root's workspaces: Electron stays out of the server's image and CI)
+      - name: Build the AppImage
+        id: appimage
+        working-directory: apps/desktop
+        run: |
+          npm ci --no-audit --no-fund
+          npm test
+          npm run dist
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: noterat-desktop-${{ steps.appimage.outputs.version }}-${{ github.run_number }}
+          path: apps/desktop/dist/noterat-desktop-*.AppImage
+          if-no-files-found: error

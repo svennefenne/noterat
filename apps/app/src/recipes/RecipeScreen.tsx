@@ -20,7 +20,7 @@ import {
   writeMinutes,
   type MemberRole,
 } from "@noterat/core";
-import { ApiError, isApp } from "../lib/api";
+import { ApiError, isNative } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { shrinkPhoto } from "../lib/images";
 import { recipePdf } from "../lib/recipePdf";
@@ -154,7 +154,7 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
             </button>
             <Menu label={t("list.more")} icon={<MoreVertical aria-hidden size={20} />}>
               <MenuItem onSelect={() => void pdf()} disabled={busy}>
-                {t(isApp ? "recipe.pdfShare" : "recipe.pdf")}
+                {t(isNative ? "recipe.pdfShare" : "recipe.pdf")}
               </MenuItem>
               {!readOnly && recipe.source && <MenuItem onSelect={() => void importNow()}>{t("recipe.importAgain")}</MenuItem>}
               {role === "owner" ? (
@@ -218,7 +218,7 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
           ))}
           {mode === "write" && !readOnly && (
             <span className="recipe-photo-add">
-              {(isApp || matchMedia("(pointer: coarse)").matches) && (
+              {(isNative || matchMedia("(pointer: coarse)").matches) && (
                 <button type="button" className="secondary small" onClick={() => camera.current?.click()}>
                   <Camera aria-hidden size={16} /> {t("entry.takePhoto")}
                 </button>

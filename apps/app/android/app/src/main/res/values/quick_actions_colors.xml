@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The home-screen widget's and the launcher shortcuts' colours: the app's own (src/styles.css), light
+     here and dark in values-night. -->
+<resources>
+    <color name="quick_actions_surface">#FFFDF9</color>
+    <color name="quick_actions_accent">#2F5D50</color>
+    <color name="quick_actions_button">#E2EBE7</color>
+    <color name="quick_actions_ripple">#332F5D50</color>
+</resources>

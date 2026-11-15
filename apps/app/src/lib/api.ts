@@ -20,11 +20,16 @@ import type {
 
 /**
  * Talking to the server. On the web the app is served by the server itself, so the API is on the same
- * address (base ""). In the Android app (and later the desktop app) the server is wherever the person
+ * address (base ""). In the Android app and the desktop app the server is wherever the person
  * says on the first screen, and the app calls it across origins with its session token.
  */
 
-export const isApp = Capacitor.isNativePlatform();
+/** On the phone, with its native plugins (the scanner, the fingerprint, sharing files…). */
+export const isNative = Capacitor.isNativePlatform();
+/** In the Linux desktop app (decision 12): the web app, bundled, in Electron. */
+export const isDesktop = typeof window !== "undefined" && "noteratDesktop" in window;
+/** An app (phone or desktop) rather than the website: the server is elsewhere, and asked for. */
+export const isApp = isNative || isDesktop;
 
 /** Why a call failed: the server's own code, or "network" (no answer: offline, or a wrong address). */
 export class ApiError extends Error {
@@ -37,7 +42,7 @@ export class ApiError extends Error {
 }
 
 interface Call {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   token?: string;
 }
@@ -95,9 +100,36 @@ export function signedInApi(base: string, token: string) {
     refreshCalendar: (id: string) => at<{ events: number }>(`/api/objects/${id}/refresh`, { method: "POST" }),
     calendarFeed: (fresh = false) => at<{ url: string }>("/api/calendar-feed", { method: fresh ? "POST" : "GET" }),
     importRecipe: (id: string) => at<{ from: "page" | "worker" }>(`/api/objects/${id}/import`, { method: "POST" }),
+    pushConfig: () => at<PushConfig>("/api/push/config"),
+    registerPush: (token: string, lang: string) => at<void>("/api/push/devices", { method: "POST", body: { token, platform: "android", lang } }),
+    pushPrefs: () => at<PushPrefs>("/api/push/prefs"),
+    setPushPrefs: (p: PushPrefs) => at<PushPrefs>("/api/push/prefs", { method: "PUT", body: p }),
+    pushTest: () => at<{ sent: number }>("/api/push/test", { method: "POST" }),
+    adminPush: () => at<AdminPush>("/api/admin/push"),
+    setAdminPush: (googleServices: string, serviceAccount: string) => at<AdminPush>("/api/admin/push", { method: "PUT", body: { googleServices, serviceAccount } }),
+    removeAdminPush: () => at<void>("/api/admin/push", { method: "DELETE" }),
+    androidRelease: () => at<{ versionName: string; versionCode: number; url: string } | null>("/api/app/android"),
   };
 }
 export type SignedInApi = ReturnType<typeof signedInApi>;
+
+/** What the phone needs to start Firebase (the public half of google-services.json), if push is set up. */
+export interface PushConfig {
+  enabled: boolean;
+  android: { appId: string; apiKey: string; projectId: string; senderId: string } | null;
+}
+export type PushKind = "invitation" | "transcribed" | "scanned";
+export interface PushPrefs {
+  kinds: Record<PushKind, boolean>;
+  quietFrom: string;
+  quietTo: string;
+}
+export interface AdminPush {
+  configured: boolean;
+  projectId: string;
+  clientEmail: string;
+  devices?: number;
+}
 
 /** What someone typed as the server's address, made whole: https:// unless they wrote http://, no path. Null: not an address. */
 export function serverAddress(input: string): string | null {
