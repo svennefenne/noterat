@@ -1,6 +1,6 @@
 # noterat-worker
 
-Noterat's worker does two kinds of job:
+Noterat's worker does three kinds of job:
 
 - **Speech to text** for voice memos, with [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
   and [KB-Whisper](https://huggingface.co/KBLab/kb-whisper-large), the National Library of Sweden's
@@ -10,13 +10,17 @@ Noterat's worker does two kinds of job:
   [Tesseract](https://github.com/tesseract-ocr/tesseract) through
   [OCRmyPDF](https://github.com/ocrmypdf/OCRmyPDF), and makes a searchable PDF of the pages. This runs
   on the CPU.
+- **Reading recipes** out of web pages, with
+  [recipe-scrapers](https://github.com/hhursev/recipe-scrapers), for a page the server fetched but
+  couldn't find a recipe in by itself. It takes a fraction of a second on the CPU.
 
 It's a small Python program that runs in its own container. It never sees Noterat's database. It
 asks Noterat for work over HTTP (`POST /api/worker/next`, a long poll), fetches the job's files, does
 the job, reports progress while it works and sends the result back. Each request carries
 `Authorization: Bearer <WORKER_TOKEN>`. The protocol is described in
-[docs/decisions/0006](../../docs/decisions/0006-notes-files-and-the-worker.md#the-worker), and for
-scans in [docs/decisions/0008](../../docs/decisions/0008-scanning-and-ocr.md#the-workers-protocol-for-scans).
+[docs/decisions/0006](../../docs/decisions/0006-notes-files-and-the-worker.md#the-worker), for
+scans in [docs/decisions/0008](../../docs/decisions/0008-scanning-and-ocr.md#the-workers-protocol-for-scans),
+and why recipes are read where they are in [docs/decisions/0009](../../docs/decisions/0009-recipes.md).
 `WORKER_KINDS` says which kinds of job it asks for. The Whisper model is only loaded if it
 transcribes: once at start, downloaded into `/models` the first time.
 
@@ -71,13 +75,46 @@ How it reads a scan (an `ocr` job: `{ id, kind: "ocr", files, language, crop }`)
 - **The log.** One line per job: id, pages (and how many were cropped), seconds, language and
   characters.
 
+How it reads a recipe (a `recipe` job: `{ id, kind: "recipe", files: [{ hash, type: "text/html", size }], url }`):
+
+- **Only what it's given.** The server fetched the page (only from public addresses, decision 9) and
+  hands over its HTML as a file. The worker downloads it with `GET /api/worker/files/:hash`, checked
+  against its SHA-256 as any file is. It **never fetches anything itself**, not the `url` and not
+  the page's picture: the `url` only tells recipe-scrapers which site the page is from.
+- **The text.** The page is read in the encoding its byte order mark says, else the `charset` on the
+  file's type if there is one, else its `<meta charset>` (or `<meta http-equiv>`, or an XHTML page's
+  `<?xml encoding>`), else UTF-8, with anything that isn't valid replaced. ISO-8859-1 is read as
+  Windows-1252, as browsers do. Bytes that are valid UTF-8 are read as UTF-8 whatever the `<meta>`
+  says, because the server keeps the page as UTF-8 text while its `<meta>` still names what it was
+  fetched in.
+- **Reading.** `scrape_html(html, org_url=url, supported_only=False)`: for a site recipe-scrapers
+  knows (some 600, `arla.se`, `ica.se`, `koket.se` and `recept.se` among them) its own scraper,
+  otherwise the page's schema.org `Recipe` as JSON-LD or microdata. Each field is read on its own, so
+  one the page hasn't got doesn't lose the others.
+- **What's sent.** `done` with `{ recipe: { title, ingredients, steps, servings, minutes, image,
+  description } }`: `ingredients` and `steps` are lists of strings (steps from
+  `instructions_list()`), whitespace made single spaces, empty ones left out, at most 200 of each, a
+  line at most 500 characters (a longer step is split between its sentences rather than cut). `title`
+  is at most 200 characters, `description` 1000; `servings` is the first number of what the page says
+  (`4 portioner` → 4, `4-6 portioner` → 4), `minutes` the total time, `image` an absolute http(s)
+  URL; each is `null` when the page hasn't got it.
+- **Failures.** No title and no ingredients: `failed` with `no recipe was found on the page` and
+  `retry: false`. So does a file that isn't a page (empty, or binary). If recipe-scrapers itself
+  breaks on the page, it's `retry: true`. There's no progress (it's quick); a `409` on `done` is
+  logged and that's that.
+- **At start.** It reads a small recipe to see that recipe-scrapers works. Without it (the `recipe`
+  extra isn't installed), it says so and goes on with the other kinds; if it was only to read
+  recipes, it stops.
+- **The log.** One line per job: id, title, seconds, what read it (the site's scraper or
+  `schema.org`), the encoding, and how many ingredients and steps.
+
 ## Settings
 
 | Variable | Default | |
 |---|---|---|
 | `NOTERAT_URL` | (required) | Noterat as the worker reaches it, e.g. `http://192.168.1.10:3300`, or `http://noterat:3000` in compose |
 | `WORKER_TOKEN` | (required) | The same long random string as `WORKER_TOKEN` on Noterat (`openssl rand -hex 32`) |
-| `WORKER_KINDS` | `transcribe,ocr` | The kinds of job it asks for: `transcribe`, `ocr` or both. `ocr` alone needs no GPU and doesn't load Whisper |
+| `WORKER_KINDS` | `transcribe,ocr,recipe` | The kinds of job it asks for: one or more of `transcribe`, `ocr` and `recipe`. Without `transcribe` it needs no GPU and doesn't load Whisper |
 | `MODEL` | `KBLab/kb-whisper-large` | A Hugging Face id of a Whisper in CTranslate2's format, or a folder with a `model.bin`. KB-Whisper also comes as `-medium`, `-small`, `-base` and `-tiny` |
 | `DEVICE` | `auto` | `cuda`, `cpu`, or `auto` (the GPU if CTranslate2 sees one) |
 | `COMPUTE_TYPE` | `float16` on a GPU, `int8` on a CPU | Anything [CTranslate2 takes](https://opennmt.net/CTranslate2/quantization.html), e.g. `int8_float16` for less GPU memory |
@@ -87,7 +124,7 @@ How it reads a scan (an `ocr` job: `{ id, kind: "ocr", files, language, crop }`)
 | `PUID` / `PGID` / `UMASK` | `99` / `100` / `002` | Who owns what it writes in `/models` (in the image) |
 
 `kb-whisper-large` takes about 3 GB on disk and about 4 GB of GPU memory in float16. Reading a scan
-takes no GPU, and no setting: the languages come with each job (`swe+eng`).
+takes no GPU, and no setting: the languages come with each job (`swe+eng`). Nor does reading a recipe.
 
 ## Running it
 
@@ -124,11 +161,11 @@ docker run -d --name noterat-worker --restart unless-stopped --gpus all \
 `DEVICE=cpu`. It works, but slower: `kb-whisper-large` took 7 times as long on a desktop CPU as on
 an RTX 3070 Ti. A smaller model helps.
 
-A worker that only reads scans needs no GPU and no `/models`:
+A worker that only reads scans and recipes needs no GPU and no `/models`:
 
 ```sh
 docker run -d --name noterat-scans --restart unless-stopped \
-  -e NOTERAT_URL=http://192.168.1.10:3300 -e WORKER_TOKEN=… -e WORKER_KINDS=ocr \
+  -e NOTERAT_URL=http://192.168.1.10:3300 -e WORKER_TOKEN=… -e WORKER_KINDS=ocr,recipe \
   ghcr.io/svennefenne/noterat-worker:latest
 ```
 
@@ -144,9 +181,13 @@ For scans it has Debian's Tesseract 5.5 with `tesseract-ocr-swe` and `tesseract-
 `opencv-python-headless`, img2pdf and Pillow. OCRmyPDF 17 rasterizes with pypdfium2 and writes a
 plain PDF itself, so neither Ghostscript nor unpaper is needed.
 
-`docker images` says 3.17 GB (1.05 GB to download), most of it cuBLAS. Without the OCR parts it was
-2.58 GB (890 MB to download). OpenCV is about 150 MB of that difference, Tesseract and its libraries
-about 105 MB.
+For recipes it has the `recipe` extra: recipe-scrapers 15.13.0, with BeautifulSoup and extruct (lxml
+was there already, for OCRmyPDF).
+
+`docker images` says 3.2 GB (1.06 GB to download), most of it cuBLAS. Without the recipe parts it was
+3.17 GB (1.05 GB to download): recipe-scrapers and what it brings take about 20 MB. Without the OCR
+parts too it was 2.58 GB (890 MB to download). OpenCV is about 150 MB of that difference, Tesseract
+and its libraries about 105 MB.
 
 Two pins matter. `av==18.1.0`, because faster-whisper 1.2.1 calls `av.open(metadata_errors=…)`,
 which PyAV 19 removed. `ctranslate2==4.9.0`, because the no-cuDNN point above depends on it.
@@ -259,11 +300,34 @@ cropped, turned by `--rotate-pages` and read as well as the upright one. A lette
 slant came out word for word. Uncropped, a photo at 7° still read 10 of the 19 lines; cropped, the
 same photo read 15.
 
+### Reading recipes
+
+`--recipe` reads a saved web page as a recipe job would, without a server, and prints JSON: `recipe`
+(exactly what `done` would send), `read_by` (the site's own scraper, e.g. `arla.se`, or
+`schema.org`), `missing` (the fields the page hasn't got, and what recipe-scrapers raised for each),
+the encoding and the time it took. `--url` is the address the page was saved from, which says which
+site it is. Nothing is fetched:
+
+```sh
+curl -sSLo page.html https://www.arla.se/recept/kottbullar/
+docker run --rm -v "$PWD":/pages:ro ghcr.io/svennefenne/noterat-worker:latest \
+  python -m noterat_worker --recipe /pages/page.html --url https://www.arla.se/recept/kottbullar/
+```
+
+Without Docker: `pip install -e '.[recipe]'`, then `python -m noterat_worker --recipe page.html --url …`.
+
+Arla's Köttbullar page (246 kB, read in 0.12 s) came out with its title, all 22 ingredients (the
+meatballs', the mash's, the lingonberries' and the pickled cucumber's, one list), 15 steps (with the
+page's section names, `Köttbullar:` and `Potatismos:`, as steps of their own), 4 servings, 45 minutes,
+its picture and its description, read by recipe-scrapers' scraper for `arla.se` (which takes the
+ingredients from the page's table rather than its JSON-LD). Noterat's server reads this page's
+JSON-LD itself, so it wouldn't reach the worker; it shows how the worker reads a real page.
+
 ## Tests
 
 ```sh
 cd apps/worker
-pip install pytest     # the tests use a fake model and a fake scanner: no faster-whisper, no Tesseract
+pip install pytest recipe-scrapers   # a fake model and a fake scanner: no faster-whisper, no Tesseract
 python -m pytest
 ```
 
@@ -290,6 +354,21 @@ For scans (`tests/test_ocr.py`, with a fake scanner):
 - stopping in the middle of the reading
 - `WORKER_KINDS`, and a worker that only reads scans never loading Whisper
 
+For recipes (`tests/test_recipe.py`):
+
+- a job going through next → file → done, with recipe-scrapers reading a Swedish page's JSON-LD
+  (`Köttbullar med gräddsås`), and what `done` sends, field by field
+- a page with no recipe (`retry: false`), a page in ISO-8859-1 read by its `<meta>`, the same page
+  as the server keeps it (UTF-8, its `<meta>` unchanged), microdata, an XHTML page, a site with a
+  scraper of its own (`ica.se`), a recipe missing most fields
+- that reading never opens a connection
+- with a fake reader: an error in recipe-scrapers (`retry: true`), a file that isn't a page, a job
+  without a page or an address, a page missing on the server, a `409` on `done`
+- the encodings, the tidying (servings, lengths, long steps split), `WORKER_KINDS`, a worker that only
+  reads recipes loading neither Whisper nor OCR, and one without recipe-scrapers going on without it
+
+The tests that read with recipe-scrapers skip themselves when it isn't installed.
+
 `tests/test_engines.py` tries the real page finder and Tesseract on synthetic images: a page warped
 onto a dark table found to within 1 %, no page found where there's no clear one, EXIF orientation,
 files that aren't images, and a Swedish receipt read through OCRmyPDF, flat and photographed. Each
@@ -302,5 +381,5 @@ docker run --rm --entrypoint sh -v "$PWD/tests":/app/tests:ro -v /usr/share/font
   -c 'pip install -q pytest && python -m pytest -q -p no:cacheprovider'
 ```
 
-CI (`.github/workflows/worker.yml`) runs them with OpenCV but without Tesseract (so the reading tests
-skip), then builds `ghcr.io/svennefenne/noterat-worker`.
+CI (`.github/workflows/worker.yml`) runs them with OpenCV and recipe-scrapers but without Tesseract
+(so the tests that read scans skip), then builds `ghcr.io/svennefenne/noterat-worker`.

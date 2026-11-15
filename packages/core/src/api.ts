@@ -68,7 +68,11 @@ export type ErrorCode =
   | "hash_mismatch"
   | "not_uploaded"
   | "wrong_type"
-  | "no_transcriber";
+  | "no_transcriber"
+  // recipes (phase 5)
+  | "fetch_failed"
+  | "not_public"
+  | "no_recipe";
 
 export interface ApiErrorBody {
   error: ErrorCode;
@@ -173,7 +177,7 @@ export interface TranscriberInfo {
 }
 
 /** What a worker does: speech to text (decision 6), reading scans (decision 8). */
-export type JobKind = "transcribe" | "ocr";
+export type JobKind = "transcribe" | "ocr" | "recipe";
 
 export interface WorkerFile {
   hash: string;
@@ -199,6 +203,14 @@ export type WorkerJob =
       language: string;
       /** per page: a photo to find the page in and straighten, not a cropped page yet */
       crop: boolean[];
+    }
+  | {
+      id: string;
+      kind: "recipe";
+      /** the page's HTML, fetched by the server (the worker fetches nothing itself) */
+      files: WorkerFile[];
+      /** the page's address, for knowing the site */
+      url: string;
     };
 
 /** POST /api/worker/jobs/:id/done, for a transcription (an OCR job's adds pages and pdf: decision 8) */

@@ -7,6 +7,7 @@ import type { DB } from "./db";
 import { fileRoutes, fileStore } from "./files";
 import { Fail, readBody, signedIn, text, type Env } from "./http";
 import { createJobs } from "./jobs";
+import { recipeImport, type FetchPage } from "./recipes";
 import { shareRoutes } from "./sharing";
 import type { Sync } from "./sync";
 import { createUser, toUser, userByUsername, userCount } from "./users";
@@ -34,6 +35,8 @@ export interface AppOptions {
   /** (tests: how long the worker's request for work waits, and how long a quiet worker keeps a job) */
   workerWait?: number;
   workerLease?: number;
+  /** (tests: how pages are fetched; else only from the internet) */
+  fetchPage?: FetchPage;
 }
 
 /**
@@ -132,9 +135,21 @@ export function createApp(o: AppOptions) {
   shareRoutes(app, { db, sync: o.sync, publicUrl: o.publicUrl });
 
   const store = fileStore(o.dataDir);
-  const jobs = createJobs({ db, sync: o.sync, store, workerToken: o.workerToken ?? "", language: o.transcribeLanguage ?? "sv", ocrLanguage: o.ocrLanguage, wait: o.workerWait, lease: o.workerLease });
+  const recipes = recipeImport({ db, sync: o.sync, store, fetchPage: o.fetchPage });
+  const jobs = createJobs({
+    db,
+    sync: o.sync,
+    store,
+    workerToken: o.workerToken ?? "",
+    language: o.transcribeLanguage ?? "sv",
+    ocrLanguage: o.ocrLanguage,
+    wait: o.workerWait,
+    lease: o.workerLease,
+    onRecipe: recipes.fromWorker,
+  });
   fileRoutes(app, { db, store, onUploaded: jobs.onUploaded });
   jobs.routes(app);
+  recipes.routes(app, jobs);
 
   app.all("/api/*", () => {
     throw new Fail("not_found", 404);

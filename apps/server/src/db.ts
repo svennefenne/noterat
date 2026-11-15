@@ -118,6 +118,9 @@ const MIGRATIONS: string[] = [
   -- the job's files, as JSON: [{ "hash": …, "crop": true|false }] (a transcription's one recording too)
   alter table jobs add column files text;
   `,
+  /* 5: what a job is given besides files (a recipe page's address, phase 5) */ `
+  alter table jobs add column input text;
+  `,
 ];
 
 /** Open (or make) the database at file (":memory:" for tests), brought up to the latest schema. */

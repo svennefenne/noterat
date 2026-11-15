@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Bell, BookHeart, Cloud, CloudOff, HardDrive, ListChecks, Loader, Mic, NotebookPen, ScanLine, Search, UserRound } from "lucide-react";
+import { Bell, BookHeart, ChefHat, Cloud, CloudOff, Ellipsis, HardDrive, ListChecks, Loader, Mic, NotebookPen, ScanLine, Search, UserRound } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { isApp } from "../lib/api";
 import { useI18n } from "../lib/i18n";
@@ -55,22 +55,41 @@ const SECTIONS = [
   { type: "memo", Icon: Mic },
   { type: "journal", Icon: BookHeart },
   { type: "scan", Icon: ScanLine },
+  { type: "recipe", Icon: ChefHat },
 ] as const;
+
+/** How many sections fit in a phone's tab bar; the rest are under "More". */
+const ON_PHONE = 4;
 
 function Sections() {
   const { t } = useI18n();
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
+  const here = (type: (typeof SECTIONS)[number]["type"]) => location === SECTION[type] || location.startsWith(`${SECTION[type]}/`);
+  const extraHere = SECTIONS.slice(ON_PHONE).some((s) => here(s.type));
   return (
     <nav className="sections" aria-label={t("section.nav")}>
-      {SECTIONS.map(({ type, Icon }) => {
-        const here = location === SECTION[type] || location.startsWith(`${SECTION[type]}/`);
-        return (
-          <Link key={type} href={SECTION[type]} className="section-link" aria-current={here ? "page" : undefined}>
-            <Icon aria-hidden size={20} />
-            <span>{t(`section.${type}`)}</span>
-          </Link>
-        );
-      })}
+      {SECTIONS.map(({ type, Icon }, i) => (
+        <Link key={type} href={SECTION[type]} className={i >= ON_PHONE ? "section-link extra" : "section-link"} aria-current={here(type) ? "page" : undefined} title={t(`section.${type}`)}>
+          <Icon aria-hidden size={20} />
+          <span>{t(`section.${type}`)}</span>
+        </Link>
+      ))}
+      <Menu
+        label={t("section.more")}
+        className={extraHere ? "section-more here" : "section-more"}
+        icon={
+          <>
+            <Ellipsis aria-hidden size={20} />
+            <span>{t("section.more")}</span>
+          </>
+        }
+      >
+        {SECTIONS.slice(ON_PHONE).map(({ type, Icon }) => (
+          <MenuItem key={type} onSelect={() => navigate(SECTION[type])}>
+            <Icon aria-hidden size={18} /> {t(`section.${type}`)}
+          </MenuItem>
+        ))}
+      </Menu>
     </nav>
   );
 }

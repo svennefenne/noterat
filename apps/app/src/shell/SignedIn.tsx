@@ -13,6 +13,8 @@ import { NoteScreen } from "../notes/NoteScreen";
 import { NotesScreen } from "../notes/NotesScreen";
 import { EntryScreen } from "../journal/EntryScreen";
 import { JournalScreen } from "../journal/JournalScreen";
+import { RecipeScreen } from "../recipes/RecipeScreen";
+import { RecipesScreen } from "../recipes/RecipesScreen";
 import { ScanScreen } from "../scans/ScanScreen";
 import { ScansScreen } from "../scans/ScansScreen";
 import { SearchScreen } from "../search/SearchScreen";
@@ -92,6 +94,10 @@ export function SignedIn({ base, token, user, onLogout, onExpired }: { base: str
             <ScansScreen />
           </Route>
           <Route path="/scans/:id">{(p) => <ScanScreen key={p.id} id={p.id} />}</Route>
+          <Route path="/recipes">
+            <RecipesScreen />
+          </Route>
+          <Route path="/recipes/:id">{(p) => <RecipeScreen key={p.id} id={p.id} />}</Route>
           <Route path="/search">
             <SearchScreen />
           </Route>

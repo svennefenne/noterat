@@ -2332,3 +2332,215 @@ a.icon-button {
   margin-bottom: 8px;
   text-decoration: none;
 }
+
+/* ───────────── many sections (phase 5): "More" on a phone, icons only on a narrow computer ───────────── */
+
+.section-more {
+  display: none;
+}
+
+.section-more .menu-item svg {
+  margin-right: 8px;
+  vertical-align: -4px;
+}
+
+@media (min-width: 720px) and (max-width: 1179px) {
+  .section-link span {
+    display: none;
+  }
+
+  .section-link {
+    padding: 0 10px;
+  }
+}
+
+@media (max-width: 719px) {
+  .section-link.extra {
+    display: none;
+  }
+
+  .section-more {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    max-width: 110px;
+  }
+
+  .section-more > .icon-button {
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    height: 52px;
+    min-height: 52px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    border-radius: var(--radius-small);
+  }
+
+  .section-more.here > .icon-button {
+    color: var(--accent);
+  }
+
+  .section-more .menu-list {
+    top: auto;
+    bottom: calc(100% + 8px);
+  }
+}
+
+/* ───────────── recipes (phase 5) ───────────── */
+
+.recipe-cards {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+}
+
+.recipe-card {
+  padding: 0 0 14px;
+  overflow: hidden;
+}
+
+.recipe-card .card-title,
+.recipe-card .card-meta {
+  padding: 0 14px;
+}
+
+.recipe-card .card-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.recipe-photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--hover);
+}
+
+.recipe-photo.empty {
+  background: linear-gradient(135deg, var(--accent-soft), var(--hover));
+}
+
+.recipe-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin-top: 6px;
+}
+
+.recipe-meta a,
+.recipe-meta > span,
+.recipe-minutes {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.recipe-minutes input {
+  width: 4.5em;
+  min-height: 30px;
+  color: var(--text);
+  font: inherit;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.recipe-tags {
+  width: 14em;
+}
+
+.recipe-photos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.recipe-photo-wrap {
+  position: relative;
+  flex: 1 1 260px;
+  max-width: 520px;
+}
+
+.recipe-photo.big {
+  border-radius: var(--radius);
+}
+
+.recipe-photo-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recipe-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  gap: 24px;
+}
+
+@media (max-width: 760px) {
+  .recipe-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.recipe-ingredients > .secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.servings {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.9375rem;
+}
+
+.servings .icon-button {
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+}
+
+.servings input {
+  width: 3.5em;
+  min-height: 32px;
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.ingredient-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ingredient-list li {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ingredient-list li.heading {
+  padding-top: 14px;
+  font-weight: 700;
+  border-bottom: none;
+}
+
+.pick-lines {
+  display: grid;
+  gap: 4px;
+  max-height: 45vh;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
