@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } 
 import { useLocation } from "wouter";
 import type { ErrorCode, ServerInfo, SessionReply } from "@noterat/core";
 import { api, ApiError, isApp, server, session, type Session } from "./lib/api";
+import { useHousehold } from "./lib/household";
 import { useI18n } from "./lib/i18n";
 import { LoginScreen, SetupScreen } from "./screens/AccountScreens";
 import { LinkGate } from "./screens/LinkScreen";
@@ -71,6 +72,19 @@ export function App() {
     else void askServer(base, setScreen);
   }, []);
 
+  // the household's settings from the server the app talks to (its look and language on the log-in page too)
+  const { refresh } = useHousehold();
+  const base = "base" in screen ? screen.base : null;
+  useEffect(() => {
+    if (base !== null) refresh(base);
+  }, [base, refresh]);
+
+  // the account changed on the server (its name, its role): asked for again
+  const session0 = screen.name === "signedIn" ? screen.session : null;
+  const accountChanged = useCallback(() => {
+    if (base !== null && session0) void checkSession(base, session0, setScreen);
+  }, [base, session0]);
+
   // (stable, so the signed-in part isn't started again on every render)
   const expired = useCallback(() => {
     session.clear();
@@ -139,6 +153,7 @@ export function App() {
           token={s.token}
           user={s.user}
           onExpired={expired}
+          onAccount={accountChanged}
           onLogout={() => {
             // (the server forgets the session when it can; the device forgets it now either way)
             void api.logout(base, s.token).catch(() => {});

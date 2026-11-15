@@ -1,6 +1,7 @@
 import { useState, type KeyboardEvent } from "react";
 import { CalendarDays, CircleDot, Clock, Hash, SquareCheck, Type, UserRound, type LucideIcon } from "lucide-react";
 import type { Cell, Column, ColumnType, Person } from "@noterat/core";
+import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 
 export const TYPE_ICONS: Record<ColumnType, LucideIcon> = {
@@ -41,12 +42,13 @@ export function usePersonName(people: Person[], me: number) {
 /** What a cell shows when it can't be changed. */
 export function useCellText(people: Person[], me: number) {
   const { lang } = useI18n();
+  const dates = useDates();
   const name = usePersonName(people, me);
   return (col: Column, v: Cell | undefined): string => {
     if (v === undefined || v === null) return "";
     if (col.type === "person" && typeof v === "number") return name(v);
     if (col.type === "number" && typeof v === "number") return new Intl.NumberFormat(lang === "sv" ? "sv-SE" : "en-GB", { maximumFractionDigits: 4 }).format(v);
-    if (col.type === "date" && typeof v === "string") return new Date(`${v}T12:00:00`).toLocaleDateString(lang === "sv" ? "sv-SE" : "en-GB", { weekday: "short", day: "numeric", month: "short" });
+    if (col.type === "date" && typeof v === "string") return dates.day(v, { weekday: true });
     if (col.type === "check") return v === true ? "✓" : "";
     return String(v);
   };

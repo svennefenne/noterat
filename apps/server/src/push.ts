@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
 import type { Hono } from "hono";
-import type { Notice, ObjectType } from "@noterat/core";
+import { clockIn, type Notice, type ObjectType } from "@noterat/core";
 import type { DB } from "./db";
-import { Fail, readBody, signedIn, text, type Env } from "./http";
+import { Fail, readBody, requireAdmin, signedIn, text, type Env } from "./http";
 
 /**
  * Push notifications through Firebase Cloud Messaging (decision 12). The Firebase project is the
@@ -90,10 +90,10 @@ export function serviceJwt(sa: ServiceAccount, now = Date.now()): string {
   return `${body}.${crypto.createSign("RSA-SHA256").update(body).sign(sa.private_key, "base64url")}`;
 }
 
-/** "22:00".."07:00" around midnight, or "12:00".."13:00" within a day. */
-export function inQuietHours(p: Pick<PushPrefs, "quietFrom" | "quietTo">, now: Date): boolean {
+/** "22:00".."07:00" around midnight, or "12:00".."13:00" within a day, on the household's clock (its time zone). */
+export function inQuietHours(p: Pick<PushPrefs, "quietFrom" | "quietTo">, now: Date, timeZone?: string): boolean {
   if (!/^\d\d:\d\d$/.test(p.quietFrom) || !/^\d\d:\d\d$/.test(p.quietTo) || p.quietFrom === p.quietTo) return false;
-  const hm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const hm = clockIn(now, timeZone);
   return p.quietFrom < p.quietTo ? hm >= p.quietFrom && hm < p.quietTo : hm >= p.quietFrom || hm < p.quietTo;
 }
 
@@ -121,6 +121,8 @@ export interface PushOptions {
   /** for tests: Google's endpoints */
   fetch?: typeof fetch;
   now?: () => Date;
+  /** the household's time zone (quiet hours go by it) */
+  timeZone?: () => string;
 }
 
 export type Push = ReturnType<typeof pushRoutes>;
@@ -193,7 +195,7 @@ export function pushRoutes(app: Hono<Env>, o: PushOptions) {
     try {
       if (kind !== "test") {
         const prefs = prefsOf(userId);
-        if (!prefs.kinds[kind] || inQuietHours(prefs, now())) return 0;
+        if (!prefs.kinds[kind] || inQuietHours(prefs, now(), o.timeZone?.())) return 0;
       }
       let sent = o.notice?.(userId, { notice: kind, url, ...(vars.from ? { from: vars.from } : {}), ...(vars.type ? { type: vars.type as ObjectType } : {}) }) ?? 0;
       const sa = account();
@@ -256,12 +258,9 @@ export function pushRoutes(app: Hono<Env>, o: PushOptions) {
 
   // ───────────── the admin ─────────────
 
-  const admin = (u: { role: string }) => {
-    if (u.role !== "admin") throw new Fail("forbidden", 403);
-  };
 
   app.get("/api/admin/push", auth, (c) => {
-    admin(c.get("user"));
+    requireAdmin(c.get("user"));
     const fb = client();
     const sa = account();
     return c.json({ configured: !!(fb && sa), projectId: fb?.projectId ?? sa?.project_id ?? "", clientEmail: sa?.client_email ?? "", devices: (db.prepare("select count(*) as n from push_devices").get() as { n: number }).n });
@@ -269,7 +268,7 @@ export function pushRoutes(app: Hono<Env>, o: PushOptions) {
 
   /** The Firebase project's two files, checked (and the key tried against Google) before they're kept. */
   app.put("/api/admin/push", auth, async (c) => {
-    admin(c.get("user"));
+    requireAdmin(c.get("user"));
     const body = await readBody(c);
     const fb = readGoogleServices(text(body.googleServices));
     const sa = readServiceAccount(text(body.serviceAccount));
@@ -286,7 +285,7 @@ export function pushRoutes(app: Hono<Env>, o: PushOptions) {
   });
 
   app.delete("/api/admin/push", auth, (c) => {
-    admin(c.get("user"));
+    requireAdmin(c.get("user"));
     db.prepare("delete from settings where key in ('push.google_services', 'push.service_account')").run();
     db.prepare("delete from push_devices").run();
     token = null;

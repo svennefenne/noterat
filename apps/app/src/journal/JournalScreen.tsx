@@ -3,6 +3,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Image, Mic, PenLine, Rows3, Us
 import { Link, useLocation } from "wouter";
 import type * as Y from "yjs";
 import { dayOf, entryBody, entryPreview, entryTitle, initEntry, readEntry, type EntryView } from "@noterat/core";
+import { useDates, type Dates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { useDocsValues, useHomeItems, useSession, useSyncState } from "../lib/sync-react";
 import { useFileUrl } from "../things/useFileUrl";
@@ -17,11 +18,9 @@ interface Card {
   body: string;
 }
 
-/** A day as the journal shows it: "fredag 14 november" (with the year when it isn't this one). */
-export function dayName(day: string, locale: string, o: { year?: boolean; weekday?: boolean } = {}) {
-  const d = new Date(`${day}T12:00:00`);
-  const thisYear = d.getFullYear() === new Date().getFullYear();
-  return d.toLocaleDateString(locale, { weekday: o.weekday === false ? undefined : "long", day: "numeric", month: "long", year: o.year || !thisYear ? "numeric" : undefined });
+/** A day as the journal shows it: "fredag 14 november" (with the year when it isn't this one), or as the household writes days. */
+export function dayName(day: string, dates: Dates, o: { year?: boolean; weekday?: boolean } = {}) {
+  return dates.day(day, { weekday: o.weekday !== false, long: true, year: o.year || undefined });
 }
 
 /**
@@ -85,7 +84,7 @@ export function JournalScreen() {
 }
 
 function Timeline({ entries }: { entries: Card[] }) {
-  const { t } = useI18n();
+  const dates = useDates();
   const months = new Map<string, Card[]>();
   for (const e of entries) {
     const key = e.entry.date.slice(0, 7);
@@ -95,7 +94,7 @@ function Timeline({ entries }: { entries: Card[] }) {
     <div className="timeline">
       {[...months].map(([month, list]) => (
         <section key={month}>
-          <h2 className="month">{new Date(`${month}-15T12:00:00`).toLocaleDateString(t("locale"), { month: "long", year: "numeric" })}</h2>
+          <h2 className="month">{dates.month(month)}</h2>
           <ul className="entries">
             {list.map((e) => (
               <EntryCard key={e.id} card={e} />
@@ -109,6 +108,7 @@ function Timeline({ entries }: { entries: Card[] }) {
 
 function EntryCard({ card }: { card: Card }) {
   const { t } = useI18n();
+  const dates = useDates();
   const { entry, body } = card;
   const d = new Date(`${entry.date}T12:00:00`);
   const title = entryTitle(entry, body);
@@ -121,8 +121,8 @@ function EntryCard({ card }: { card: Card }) {
           <span className="entry-date">{d.getDate()}</span>
         </span>
         <span className="entry-main">
-          <span className="card-title">{title || <span className="muted">{dayName(entry.date, t("locale"))}</span>}</span>
-          <span className="visually-hidden">{dayName(entry.date, t("locale"))}</span>
+          <span className="card-title">{title || <span className="muted">{dayName(entry.date, dates)}</span>}</span>
+          <span className="visually-hidden">{dayName(entry.date, dates)}</span>
           {preview && <span className="card-preview">{preview}</span>}
           <span className="card-meta">
             {entry.photos.length > 0 && (
@@ -155,7 +155,8 @@ function Thumb({ hash }: { hash: string }) {
 
 /** A month, Monday first (in Swedish) or Sunday first; days with entries marked. A day picked shows its entries. */
 function Calendar({ entries, onWrite }: { entries: Card[]; onWrite: (day: string) => void }) {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
+  const dates = useDates();
   const today = dayOf();
   const [month, setMonth] = useState(today.slice(0, 7));
   const [picked, setPicked] = useState(today);
@@ -163,15 +164,14 @@ function Calendar({ entries, onWrite }: { entries: Card[]; onWrite: (day: string
   for (const e of entries) byDay.set(e.entry.date, [...(byDay.get(e.entry.date) ?? []), e]);
 
   const first = new Date(`${month}-01T12:00:00`);
-  const mondayFirst = lang === "sv";
-  const lead = (first.getDay() + (mondayFirst ? 6 : 0)) % 7;
+  const lead = dates.weekIndex(first);
   const daysIn = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
   const cells = [...Array(lead).fill(null), ...Array.from({ length: daysIn }, (_, i) => `${month}-${String(i + 1).padStart(2, "0")}`)];
   const shift = (n: number) => {
     const d = new Date(first.getFullYear(), first.getMonth() + n, 1);
     setMonth(dayOf(d).slice(0, 7));
   };
-  const weekdays = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, (mondayFirst ? 1 : 7) + i).toLocaleDateString(t("locale"), { weekday: "narrow" }));
+  const weekdays = dates.weekdays("narrow");
   const onDay = byDay.get(picked) ?? [];
 
   return (
@@ -180,7 +180,7 @@ function Calendar({ entries, onWrite }: { entries: Card[]; onWrite: (day: string
         <button type="button" className="icon-button" onClick={() => shift(-1)} aria-label={t("journal.prevMonth")}>
           <ChevronLeft aria-hidden size={20} />
         </button>
-        <h2>{first.toLocaleDateString(t("locale"), { month: "long", year: "numeric" })}</h2>
+        <h2>{dates.month(first)}</h2>
         <button type="button" className="icon-button" onClick={() => shift(1)} aria-label={t("journal.nextMonth")}>
           <ChevronRight aria-hidden size={20} />
         </button>
@@ -198,7 +198,7 @@ function Calendar({ entries, onWrite }: { entries: Card[]; onWrite: (day: string
               type="button"
               className={`calendar-day${day === today ? " today" : ""}${byDay.has(day) ? " has" : ""}`}
               aria-pressed={day === picked}
-              aria-label={`${dayName(day, t("locale"), { year: true })}${byDay.has(day) ? `, ${byDay.get(day)!.length === 1 ? t("journal.oneEntry") : t("journal.entries", { n: byDay.get(day)!.length })}` : ""}`}
+              aria-label={`${dayName(day, dates, { year: true })}${byDay.has(day) ? `, ${byDay.get(day)!.length === 1 ? t("journal.oneEntry") : t("journal.entries", { n: byDay.get(day)!.length })}` : ""}`}
               onClick={() => setPicked(day)}
             >
               {Number(day.slice(8))}
@@ -209,7 +209,7 @@ function Calendar({ entries, onWrite }: { entries: Card[]; onWrite: (day: string
         )}
       </div>
       <div className="calendar-picked">
-        <h3>{dayName(picked, t("locale"))}</h3>
+        <h3>{dayName(picked, dates)}</h3>
         {onDay.length > 0 && (
           <ul className="entries">
             {onDay.map((e) => (

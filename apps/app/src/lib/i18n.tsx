@@ -1,10 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ListProblem, MAX_ROWS, PASSWORD_MIN } from "@noterat/core";
 import { ApiError } from "./api";
+import { useHousehold } from "./household";
 import { en, sv, type TextKey } from "./texts";
 
 /**
- * The app's language: Swedish by default (English on an English device); anyone can switch, and the
+ * The app's language: the household's (decision 14; Swedish to begin with); anyone can switch, and the
  * choice is kept on the device. The words themselves are in texts.ts.
  */
 
@@ -13,14 +14,15 @@ export type Lang = "sv" | "en";
 const TEXTS: Record<Lang, Record<TextKey, string>> = { sv, en };
 const LANG_KEY = "noterat.lang";
 
-function startLang(): Lang {
+/** the language picked on this device, if one was */
+function chosenLang(): Lang | null {
   try {
     const saved = localStorage.getItem(LANG_KEY);
     if (saved === "sv" || saved === "en") return saved;
   } catch {
-    // (no storage: the device's language)
+    // (no storage: the household's)
   }
-  return navigator.language.toLowerCase().startsWith("en") ? "en" : "sv";
+  return null;
 }
 
 export type Translate = (key: TextKey, vars?: Record<string, string | number>) => string;
@@ -36,7 +38,9 @@ interface I18n {
 const Ctx = createContext<I18n | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(startLang);
+  const { household } = useHousehold();
+  const [chosen, setLangState] = useState<Lang | null>(chosenLang);
+  const lang = chosen ?? household.locale.lang;
   const setLang = useCallback((l: Lang) => {
     try {
       localStorage.setItem(LANG_KEY, l);

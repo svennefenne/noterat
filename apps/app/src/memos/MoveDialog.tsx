@@ -16,6 +16,7 @@ import {
   readNote,
   textLines,
 } from "@noterat/core";
+import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { useDocsValues, useHomeItems, useSession } from "../lib/sync-react";
 import { byDay, memoIntoJournal } from "../journal/fromMemo";
@@ -41,6 +42,7 @@ const readEntryName = (doc: Y.Doc) => ({ entry: readEntry(doc), body: entryBody(
  */
 export function MoveDialog({ memoId, title, text, owner, onDone }: { memoId: string; title: string; text: string; owner: boolean; onDone: () => void }) {
   const { t } = useI18n();
+  const dates = useDates();
   const { sync, user } = useSession();
   const [, navigate] = useLocation();
   const items = useHomeItems();
@@ -126,7 +128,7 @@ export function MoveDialog({ memoId, title, text, owner, onDone }: { memoId: str
             <option value="">{t("move.newEntry")}</option>
             {usableEntries.map((e) => (
               <option key={e.id} value={e.id}>
-                {dayName(e.entry.date, t("locale"), { weekday: false })}
+                {dayName(e.entry.date, dates, { weekday: false })}
                 {entryTitle(e.entry, e.body) ? ` · ${entryTitle(e.entry, e.body)}` : ""}
               </option>
             ))}

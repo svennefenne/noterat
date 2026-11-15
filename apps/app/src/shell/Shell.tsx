@@ -7,8 +7,8 @@ import { useInvitations, useLock, useSession, useSyncState } from "../lib/sync-r
 import { pathOf, SECTION } from "../lib/things";
 import { Dialog, Menu, MenuItem, Problem } from "../ui";
 import { LockSettingsForm } from "./LockGate";
-import { MailAdminForm } from "./MailSettings";
-import { NotificationSettingsForm, PushAdminForm } from "./PushSettings";
+import { MyLookForm } from "../admin/Look";
+import { NotificationSettingsForm } from "./PushSettings";
 import { UpdateBanner } from "./UpdateBanner";
 import { BUILD, versionText } from "../lib/updates";
 
@@ -21,7 +21,8 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
   const { user, base, lock } = useSession();
   const { settings } = useLock();
   const [locking, setLocking] = useState(false);
-  const [pushing, setPushing] = useState<"prefs" | "admin" | "mail" | null>(null);
+  const [pushing, setPushing] = useState<"prefs" | "look" | null>(null);
+  const [, navigate] = useLocation();
   return (
     <div className="app">
       <header className="topbar">
@@ -43,8 +44,8 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
             <MenuItem onSelect={() => setLang(lang === "sv" ? "en" : "sv")}>{t("lang.other")}</MenuItem>
             <MenuItem onSelect={() => setLocking(true)}>{t("lock.settings")}</MenuItem>
             <MenuItem onSelect={() => setPushing("prefs")}>{t("push.settings")}</MenuItem>
-            {user.role === "admin" && <MenuItem onSelect={() => setPushing("admin")}>{t("push.admin")}</MenuItem>}
-            {user.role === "admin" && <MenuItem onSelect={() => setPushing("mail")}>{t("mail.admin")}</MenuItem>}
+            <MenuItem onSelect={() => setPushing("look")}>{t("look.menu")}</MenuItem>
+            {user.role === "admin" && <MenuItem onSelect={() => navigate("/admin")}>{t("admin.menu")}</MenuItem>}
             {settings.scope !== "off" && <MenuItem onSelect={() => lock.lockNow()}>{t("lock.now")}</MenuItem>}
             <MenuItem onSelect={onLogout}>{t("menu.logout")}</MenuItem>
           </Menu>
@@ -60,11 +61,8 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
       <Dialog open={pushing === "prefs"} onClose={() => setPushing(null)} title={t("push.title")}>
         {pushing === "prefs" && <NotificationSettingsForm onDone={() => setPushing(null)} />}
       </Dialog>
-      <Dialog open={pushing === "admin"} onClose={() => setPushing(null)} title={t("push.adminTitle")}>
-        {pushing === "admin" && <PushAdminForm onDone={() => setPushing(null)} />}
-      </Dialog>
-      <Dialog open={pushing === "mail"} onClose={() => setPushing(null)} title={t("mail.title")}>
-        {pushing === "mail" && <MailAdminForm onDone={() => setPushing(null)} />}
+      <Dialog open={pushing === "look"} onClose={() => setPushing(null)} title={t("look.title")} wide>
+        {pushing === "look" && <MyLookForm onDone={() => setPushing(null)} />}
       </Dialog>
     </div>
   );

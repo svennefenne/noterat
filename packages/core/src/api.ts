@@ -64,6 +64,9 @@ export type ErrorCode =
   | "name_long"
   | "password_short"
   | "password_long"
+  // the admin page (decision 14)
+  | "last_admin"
+  | "remove_yourself"
   // files and transcription (phase 2)
   | "upload_offset"
   | "file_too_large"

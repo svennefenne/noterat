@@ -2,7 +2,7 @@ import type { Hono } from "hono";
 import nodemailer from "nodemailer";
 import { validEmail } from "@noterat/core";
 import type { DB } from "./db";
-import { Fail, readBody, signedIn, text, type Env } from "./http";
+import { Fail, readBody, requireAdmin, signedIn, text, type Env } from "./http";
 
 /**
  * Sending mail (decision 13): the cost split's summaries, with their PDFs. Through the household's own SMTP
@@ -149,9 +149,6 @@ export function createMailer(db: DB, o: { transport?: MailTransport; env?: NodeJ
 /** The admin's mail dialog, and whether there's mail at all (for the app's "send out"). */
 export function mailRoutes(app: Hono<Env>, o: { db: DB; mail: Mailer }) {
   const auth = signedIn(o.db);
-  const admin = (u: { role: string }) => {
-    if (u.role !== "admin") throw new Fail("forbidden", 403);
-  };
   const view = () => {
     const { settings: s, source } = o.mail.settings();
     return {
@@ -165,12 +162,12 @@ export function mailRoutes(app: Hono<Env>, o: { db: DB; mail: Mailer }) {
   app.get("/api/mail", auth, (c) => c.json({ ready: o.mail.ready() }));
 
   app.get("/api/admin/mail", auth, (c) => {
-    admin(c.get("user"));
+    requireAdmin(c.get("user"));
     return c.json(view());
   });
 
   app.put("/api/admin/mail", auth, async (c) => {
-    admin(c.get("user"));
+    requireAdmin(c.get("user"));
     const b = await readBody(c);
     const host = text(b.host).trim();
     const port = Number(b.port);
@@ -192,7 +189,7 @@ export function mailRoutes(app: Hono<Env>, o: { db: DB; mail: Mailer }) {
 
   /** A test mail to the address given: { sent } or { sent: false, error } with the server's own words. */
   app.post("/api/admin/mail/test", auth, async (c) => {
-    admin(c.get("user"));
+    requireAdmin(c.get("user"));
     const to = text((await readBody(c)).to).trim().toLowerCase();
     if (!validEmail(to)) throw new Fail("mail_bad_address", 400);
     if (!o.mail.ready()) throw new Fail("mail_off", 409);

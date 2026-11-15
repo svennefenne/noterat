@@ -56,6 +56,13 @@ export async function account(db: DB, username: string) {
   return { user, token: createSession(db, user.id, "test") };
 }
 
+/** an account that's an admin */
+export async function admin(db: DB, username: string) {
+  const a = await account(db, username);
+  db.prepare("update users set role = 'admin' where id = ?").run(a.user.id);
+  return { ...a, user: { ...a.user, role: "admin" as const } };
+}
+
 export async function call<T>(base: string, method: string, path: string, token?: string, body?: unknown): Promise<{ status: number; json: T }> {
   const res = await fetch(base + path, {
     method,

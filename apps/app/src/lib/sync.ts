@@ -57,6 +57,7 @@ export class Sync {
   private readonly prefix: string;
   private state: SyncState = { connection: "connecting", waiting: 0, homeLoaded: false };
   private readonly noticeListeners = new Set<(n: Notice) => void>();
+  private readonly messageListeners = new Set<(payload: string) => void>();
   private destroyed = false;
 
   /** notices: this device shows the server's notices itself (the desktop app; a phone gets push) */
@@ -93,6 +94,15 @@ export class Sync {
   };
 
   getState = () => this.state;
+
+  /**
+   * The server's other messages on the home document (decision 14): the household's settings changed
+   * (HOUSEHOLD_CHANGED), or this person's account did (ACCOUNT_CHANGED).
+   */
+  onMessage(listener: (payload: string) => void) {
+    this.messageListeners.add(listener);
+    return () => void this.messageListeners.delete(listener);
+  }
 
   /** The server's notices, on a device that shows them itself (notices): an invitation, a memo transcribed… */
   onNotice(listener: (n: Notice) => void) {
@@ -188,17 +198,19 @@ export class Sync {
       onAuthenticationFailed: ({ reason }) => this.refused(name, reason),
       // (the server closes a document it no longer lets this person have, saying why)
       onClose: ({ event }) => {
-        if (event.reason === "forbidden" || event.reason === "deleted") this.refused(name, event.reason);
+        if (event.reason === "forbidden" || event.reason === "deleted" || event.reason === "unauthorized") this.refused(name, event.reason);
       },
       onUnsyncedChanges: () => this.update({}),
       onSynced: () => this.update({}),
     });
-    if (this.o.notices && name === homeDocName(this.o.userId)) {
+    if (name === homeDocName(this.o.userId)) {
       // (each time it's let in: a new connection is a new hello)
-      provider.on("authenticated", () => provider.sendStateless(DESKTOP_HELLO));
+      if (this.o.notices) provider.on("authenticated", () => provider.sendStateless(DESKTOP_HELLO));
       provider.on("stateless", ({ payload }: { payload: string }) => {
-        const n = readNotice(payload);
-        if (n && !this.destroyed) this.noticeListeners.forEach((l) => l(n));
+        if (this.destroyed) return;
+        const n = this.o.notices ? readNotice(payload) : null;
+        if (n) this.noticeListeners.forEach((l) => l(n));
+        else this.messageListeners.forEach((l) => l(payload));
       });
     }
     provider.attach();

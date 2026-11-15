@@ -8,6 +8,18 @@
     <meta name="theme-color" content="#161514" media="(prefers-color-scheme: dark)" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <title>Noterat</title>
+    <!-- the household's colours (decision 14), as the app last put them on, before anything else loads -->
+    <script>
+      try {
+        var css = localStorage.getItem("noterat.look.css");
+        if (css) {
+          var style = document.createElement("style");
+          style.id = "noterat-look";
+          style.textContent = css;
+          document.head.appendChild(style);
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

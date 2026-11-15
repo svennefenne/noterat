@@ -2,14 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { SendMailOptions } from "nodemailer";
 import { addExpense, addPerson, initSplit, newObjectId, objectDocName, readSplit } from "@noterat/core";
 import type { MailSettings } from "../src/mail";
-import type { DB } from "../src/db";
-import { account, call, device, startServer, synced, until } from "./helpers";
-
-async function admin(db: DB, username: string) {
-  const a = await account(db, username);
-  db.prepare("update users set role = 'admin' where id = ?").run(a.user.id);
-  return a;
-}
+import { account, admin, call, device, startServer, synced, until } from "./helpers";
 
 /**
  * Mail (decision 13): an admin sets the household's SMTP server, and a cost split's summary goes out to

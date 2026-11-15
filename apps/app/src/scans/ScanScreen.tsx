@@ -16,6 +16,7 @@ import {
   type ReceiptGuess,
 } from "@noterat/core";
 import { ApiError, isNative } from "../lib/api";
+import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { useDocValue, useSession, useSyncState } from "../lib/sync-react";
 import { MarkdownEditor } from "../notes/LazyEditor";
@@ -43,6 +44,7 @@ export function ScanScreen({ id }: { id: string }) {
 
 function ScanPage({ id, role }: { id: string; role: MemberRole }) {
   const { t, errorText } = useI18n();
+  const dates = useDates();
   const { sync, api } = useSession();
   useSyncState();
   const name = objectDocName("scan", id);
@@ -105,7 +107,7 @@ function ScanPage({ id, role }: { id: string; role: MemberRole }) {
           </div>
         </div>
         <p className="memo-meta muted small-text">
-          {when(scan.createdAt, t)} · {scan.pages.length === 1 ? t("scan.onePage") : t("scan.pages", { n: scan.pages.length })} · <ScanStatus scan={scan} detail />
+          {when(scan.createdAt, t, dates)} · {scan.pages.length === 1 ? t("scan.onePage") : t("scan.pages", { n: scan.pages.length })} · <ScanStatus scan={scan} detail />
         </p>
         {problem && <Problem>{problem}</Problem>}
       </div>

@@ -59,4 +59,16 @@ describe("the summary each person gets", () => {
     const hers = await PDFDocument.load(await splitPdf(v, ada, { lang: "sv", by: "Ada Andersson" }));
     expect(hers.getPage(0).node.Annots()?.size() ?? 0).toBe(0);
   });
+
+  it("leaves Swish out when the household doesn't use it, and writes days as it does", async () => {
+    const { v, david } = trip();
+    const m = splitMail(v, david, { lang: "sv", by: "Ada Andersson", swish: false });
+    expect(m.text).toContain(`${kronor(230000)} kr till Ada Andersson\n`);
+    expect(m.text).not.toContain("Swish");
+    expect(m.html).not.toContain("swish.nu");
+    const pdf = await PDFDocument.load(await splitPdf(v, david, { lang: "sv", by: "Ada Andersson", swish: false, dates: { dateStyle: "iso" } }));
+    expect(pdf.getPage(0).node.Annots()?.size() ?? 0).toBe(0);
+    expect(dateSpan("2027-02-14", "2027-02-16", "sv", { dateStyle: "iso" })).toBe("2027-02-14 – 2027-02-16");
+    expect(dateSpan("2027-02-14", "2027-02-14", "sv", { dateStyle: "iso" })).toBe("2027-02-14");
+  });
 });

@@ -5,6 +5,7 @@ import type { DB } from "./db";
 import { Fail, readBody, signedIn, type Env } from "./http";
 import type { Mailer } from "./mail";
 import { objectRow, roleOf } from "./objects";
+import type { HouseholdSettings } from "./household";
 import type { Sync } from "./sync";
 
 /**
@@ -13,7 +14,7 @@ import type { Sync } from "./sync";
  * server's copy of the document, which the app makes sure is up to date before it asks. Anyone who may
  * change the split may send it; the mail says who did, and an answer goes to them.
  */
-export function splitRoutes(app: Hono<Env>, o: { db: DB; sync: Sync; mail: Mailer }) {
+export function splitRoutes(app: Hono<Env>, o: { db: DB; sync: Sync; mail: Mailer; household: HouseholdSettings }) {
   const auth = signedIn(o.db);
 
   app.post("/api/objects/:id/send", auth, async (c) => {
@@ -35,12 +36,15 @@ export function splitRoutes(app: Hono<Env>, o: { db: DB; sync: Sync; mail: Maile
     if (to.length === 0) throw new Fail("split_nobody", 400);
 
     const by = me.displayName;
+    // (the household's ways: its days as it writes them, and Swish only if it uses it)
+    const h = o.household.get();
+    const letter = { lang, by, dates: h.locale, swish: h.money.swish } as const;
     const replyTo = v.people.find((p) => p.userId === me.id && validEmail(p.email))?.email;
     const results: { id: string; sent: boolean; error?: string }[] = [];
     for (const p of to) {
-      const m = splitMail(v, p.id, { lang, by });
+      const m = splitMail(v, p.id, letter);
       try {
-        const pdf = await splitPdf(v, p.id, { lang, by });
+        const pdf = await splitPdf(v, p.id, letter);
         await o.mail.send({ to: p.email, subject: m.subject, text: m.text, html: m.html, replyTo, attachments: [{ filename: m.filename, content: pdf, contentType: "application/pdf" }] });
         results.push({ id: p.id, sent: true });
       } catch (e) {

@@ -12,7 +12,7 @@ const PORTS: Record<MailSecurity, number> = { starttls: 587, tls: 465, none: 25 
  * The admin's part: the household's own SMTP server, which the cost splits' summaries are mailed through
  * (decision 13). The password is sent once and never shown again; a test mail says whether it works.
  */
-export function MailAdminForm({ onDone }: { onDone: () => void }) {
+export function MailAdminForm({ onDone }: { onDone?: () => void }) {
   const { t, lang, errorText } = useI18n();
   const { api } = useSession();
   const [state, setState] = useState<AdminMail | null>(null);
@@ -133,9 +133,11 @@ export function MailAdminForm({ onDone }: { onDone: () => void }) {
         </div>
       )}
       <div className="dialog-actions">
-        <button type="button" className="secondary" onClick={onDone}>
-          {t("budget.done")}
-        </button>
+        {onDone && (
+          <button type="button" className="secondary" onClick={onDone}>
+            {t("budget.done")}
+          </button>
+        )}
         <button type="submit" className="primary" disabled={busy || (!!v.host.trim() && !v.from.trim())}>
           {t("note.save")}
         </button>

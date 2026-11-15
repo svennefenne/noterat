@@ -18,6 +18,7 @@ import {
   type Photo,
 } from "@noterat/core";
 import { ApiError, isNative } from "../lib/api";
+import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { shrinkPhoto } from "../lib/images";
 import { useDocValue, useSession, useSyncState } from "../lib/sync-react";
@@ -45,6 +46,7 @@ export function EntryScreen({ id }: { id: string }) {
 
 function EntryPage({ id, role }: { id: string; role: MemberRole }) {
   const { t, errorText } = useI18n();
+  const dates = useDates();
   const { sync, api } = useSession();
   useSyncState();
   const name = objectDocName("journal", id);
@@ -62,7 +64,7 @@ function EntryPage({ id, role }: { id: string; role: MemberRole }) {
   const readOnly = role === "viewer";
   const awareness = sync.awareness(name);
   usePresence(awareness);
-  const title = entryTitle(entry, body) || dayName(entry.date, t("locale"));
+  const title = entryTitle(entry, body) || dayName(entry.date, dates);
 
   // when it was last written in (by this device), at most every 20 seconds
   useEffect(() => {
@@ -136,7 +138,7 @@ function EntryPage({ id, role }: { id: string; role: MemberRole }) {
         <label className="entry-date-field">
           <span className="visually-hidden">{t("entry.day")}</span>
           <input type="date" value={entry.date} disabled={readOnly} onChange={(e) => setEntryDate(doc, e.target.value)} />
-          <span className="muted small-text">{dayName(entry.date, t("locale"), { year: true })}</span>
+          <span className="muted small-text">{dayName(entry.date, dates, { year: true })}</span>
         </label>
         {problem && <Problem>{problem}</Problem>}
       </div>

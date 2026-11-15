@@ -4,6 +4,7 @@ import { Link, useLocation } from "wouter";
 import type * as Y from "yjs";
 import { initNote, noteBody, notePreview, noteTitle, readNote, setPrefs, type NoteView } from "@noterat/core";
 import { useLinkedAction } from "../lib/deepLinks";
+import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { useDocsValues, useHomeItems, useHomePrefs, useSession, useSyncState } from "../lib/sync-react";
 import { useStored } from "../ui";
@@ -102,7 +103,8 @@ export function NotesScreen() {
 }
 
 function NoteCard({ id, note, body, pinned, folder, shared }: { id: string; note: NoteView; body: string; pinned: boolean; folder?: string; shared: boolean }) {
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
+  const dates = useDates();
   const preview = notePreview(note, body);
   return (
     <li>
@@ -113,7 +115,7 @@ function NoteCard({ id, note, body, pinned, folder, shared }: { id: string; note
         </span>
         {preview && <span className="card-preview">{preview}</span>}
         <span className="card-meta">
-          {new Date(note.updatedAt).toLocaleDateString(lang === "sv" ? "sv-SE" : "en-GB", { day: "numeric", month: "short" })}
+          {dates.day(new Date(note.updatedAt))}
           {folder && (
             <span className="badge">
               <Folder aria-hidden size={14} /> {folder}
