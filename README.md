@@ -49,14 +49,17 @@ docker compose up -d    # http://<server>:3300; add --profile https for Caddy wi
 
 ### The Android app
 
-The Android workflow builds an APK on every push to `main` (under Actions, and as a GitHub release once
-the signing key is set up: see [`.github/workflows/android.yml`](.github/workflows/android.yml)). On
-its first screen the app asks for the server's address; a server at home can be plain
+CI builds the APK and the desktop app's AppImage on every push to `main` and puts both into the server's
+image ([decision 16](docs/decisions/0016-updates-and-signing.md)). On its first screen the app asks for the server's address; a server at home can be plain
 `http://192.168.x.x:3300` on the local network. The APK is built for 64-bit ARM phones only (all from
 the last several years), which keeps it small: ML Kit's text recognition is a large native library.
 
-**Updates**: put a newer APK (as CI names it, `noterat-android-0.1.0-23.apk`) in the appdata folder's
-`app/` and every phone on an older build offers it at the top of the app.
+**Updates** come with the server: update the container, and every phone and computer on an older build
+gets the new one by itself. The phone downloads it and offers to install it (Android always asks); the
+desktop app replaces its AppImage and starts again. The account menu shows which build you have. A newer
+APK or AppImage put in the appdata folder's `app/` (named as CI names them,
+`noterat-android-0.1.0-40.apk`) is offered too. APKs are signed with the key in the repository's secrets
+`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_ALIAS`; keep a copy of it safe.
 
 **Push notifications** go through your own (free) Firebase project, so nothing about Firebase is built
 into the APK. As the admin, open the account menu → *Push (Firebase)…* and follow the three steps: create a

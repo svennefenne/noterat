@@ -12,6 +12,8 @@ const app = createApp({
   db,
   sync,
   version: config.version,
+  build: config.build,
+  bundledDir: config.bundledDir,
   webDir: config.webDir,
   trustedIpHeader: config.trustedIpHeader,
   publicUrl: config.publicUrl,

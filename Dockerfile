@@ -7,6 +7,11 @@
 ARG NODE_BUILD_IMAGE=node:22-bookworm
 ARG NODE_RUN_IMAGE=node:22-bookworm-slim
 
+# The Android app and the desktop app built with this server (decision 16): CI passes them as the build
+# context "bundled" (docker build --build-context bundled=<folder>); without it, there are none, and the
+# server offers only what's put in /data/app.
+FROM scratch AS bundled
+
 # ───────────── 1. build ─────────────
 FROM ${NODE_BUILD_IMAGE} AS build
 WORKDIR /src
@@ -16,6 +21,10 @@ COPY apps/server/package.json apps/server/
 COPY apps/app/package.json apps/app/
 RUN npm ci --no-audit --no-fund
 COPY . .
+# the build (the number of commits) and the commit, for the web build to know itself by (declared here,
+# so a new one doesn't undo the cached npm ci above)
+ARG NOTERAT_BUILD=0
+ARG NOTERAT_SHA=
 RUN npm run build
 # what the bundled server needs beside it: better-sqlite3 (native), at the version it was built with
 RUN mkdir /runtime && cd /runtime \
@@ -24,23 +33,28 @@ RUN mkdir /runtime && cd /runtime \
 
 # ───────────── 2. runtime ─────────────
 FROM ${NODE_RUN_IMAGE} AS run
-ARG NOTERAT_VERSION=dev
 LABEL org.opencontainers.image.title="Noterat" \
       org.opencontainers.image.description="Shared notes, journal, voice memos, lists, finances, calendar, recipes and a document scanner; self-hosted and offline first" \
       org.opencontainers.image.source="https://github.com/svennefenne/noterat"
 RUN apt-get update && apt-get install -y --no-install-recommends gosu tini tzdata ca-certificates \
  && rm -rf /var/lib/apt/lists/*
+# (after the packages, so a new version doesn't undo their cached layer)
+ARG NOTERAT_VERSION=dev
+ARG NOTERAT_BUILD=0
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3000 \
     DATA_DIR=/data \
     WEB_DIR=/app/web \
     NOTERAT_VERSION=${NOTERAT_VERSION} \
+    NOTERAT_BUILD=${NOTERAT_BUILD} \
+    BUNDLED_DIR=/app/bundled \
     PUID=99 PGID=100 UMASK=002 \
     TZ=Europe/Stockholm
 COPY --from=build /runtime/node_modules ./node_modules
 COPY --from=build /src/apps/server/dist/ ./
 COPY --from=build /src/apps/app/dist/ ./web/
+COPY --from=bundled / ./bundled/
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod 755 /entrypoint.sh && mkdir -p /data
 VOLUME /data

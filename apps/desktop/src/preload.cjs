@@ -1,8 +1,10 @@
 /* global require, process, location, window */
 // The page's side of the shell (sandboxed, so CommonJS: an ES module can't be a sandboxed preload).
 //
-// window.noteratDesktop = { version, platform }: the app knows it runs in the desktop app by it (isDesktop
-// in apps/app/src/lib/api.ts), and asks for the server's address as on Android.
+// window.noteratDesktop = { version, platform, updates, update, restart }: the app knows it runs in the
+// desktop app by it (isDesktop in apps/app/src/lib/api.ts), and asks for the server's address as on Android.
+// update(server) replaces the AppImage with a newer build from the server, restart() starts the new one
+// (decision 16); updates says whether this copy can (it runs as an AppImage).
 //
 // A click on one of the page's notifications brings the window back from the tray: Electron only passes
 // the click to the page, and a hidden window ignores the page's own window.focus().
@@ -13,7 +15,13 @@ const { contextBridge, ipcRenderer } = require("electron");
 const arg = (name) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? "";
 
 if (location.protocol === "app:" && location.host === "noterat") {
-  contextBridge.exposeInMainWorld("noteratDesktop", { version: arg("noterat-version"), platform: "linux" });
+  contextBridge.exposeInMainWorld("noteratDesktop", {
+    version: arg("noterat-version"),
+    platform: "linux",
+    updates: arg("noterat-updates") === "1",
+    update: (server) => ipcRenderer.invoke("noterat:update", String(server)),
+    restart: () => ipcRenderer.send("noterat:restart"),
+  });
 
   contextBridge.executeInMainWorld({
     // (run in the page's own world, so the page's Notification is the one changed)

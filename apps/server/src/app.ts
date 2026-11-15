@@ -24,6 +24,10 @@ export interface AppOptions {
   db: DB;
   sync: Sync;
   version: string;
+  /** the build (decision 16; 0 in development) */
+  build?: number;
+  /** the apps built with the server, offered as updates (decision 16), or null */
+  bundledDir?: string | null;
   /** the app's built files, or null (development: Vite serves them) */
   webDir: string | null;
   /** a header holding the visitor's address, set by a trusted proxy ("" = the connection's own) */
@@ -98,7 +102,7 @@ export function createApp(o: AppOptions) {
 
   app.get("/api/health", (c) => c.json({ ok: true }));
 
-  app.get("/api/server", (c) => c.json({ app: "noterat", version: o.version, needsSetup: userCount(db) === 0 } satisfies ServerInfo));
+  app.get("/api/server", (c) => c.json({ app: "noterat", version: o.version, build: o.build ?? 0, needsSetup: userCount(db) === 0 } satisfies ServerInfo));
 
   /** The first account, which is the admin. Only while there are no accounts. */
   app.post("/api/setup", async (c) => {
@@ -171,7 +175,7 @@ export function createApp(o: AppOptions) {
   recipes.routes(app, jobs);
   const calendars = calendarRoutes(app, { db, sync: o.sync, publicUrl: o.publicUrl, fetchPage: o.fetchPage });
 
-  appUpdateRoutes(app, { dataDir: o.dataDir });
+  appUpdateRoutes(app, { dataDir: o.dataDir, bundledDir: o.bundledDir });
 
   app.all("/api/*", () => {
     throw new Fail("not_found", 404);

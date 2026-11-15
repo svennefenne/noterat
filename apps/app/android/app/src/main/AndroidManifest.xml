@@ -94,4 +94,7 @@
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <!-- push notifications (Android 13+ asks; the app asks once push is set up on the server) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- updates from the household's own server (decision 16): Android's installer, opened on a downloaded APK
+         (Android asks the person every time, and the first time for the right to) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>
