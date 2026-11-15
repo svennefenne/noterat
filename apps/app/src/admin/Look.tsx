@@ -3,6 +3,7 @@ import { Check, Dices, Monitor, Moon, Search, Sun } from "lucide-react";
 import { LOOK_MODES, SCHEME_CATEGORIES, SCHEMES, schemeOf, type LookMode, type Scheme, type SchemeCategory } from "@noterat/core";
 import { useHousehold } from "../lib/household";
 import { useI18n } from "../lib/i18n";
+import { usePlusSide } from "../lib/plusSide";
 import { Problem } from "../ui";
 import { AdminSection, Setting, useSaveHousehold } from "./AdminScreen";
 
@@ -143,9 +144,14 @@ export function LookSection() {
 }
 
 /** Someone's own look on this device ("Utseende…" in the menu): the household's, or a scheme and mode of their own. */
-export function MyLookForm({ onDone }: { onDone: () => void }) {
+/**
+ * This device's own look (Settings → Appearance): light or dark, the plus button's side on a phone, and
+ * the household's colours or an own scheme. Each change applies at once.
+ */
+export function MyLookForm() {
   const { t } = useI18n();
   const { household, mine, setMine, look } = useHousehold();
+  const [side, setSide] = usePlusSide();
   const theirs = `${schemeOf(household.look.scheme).name}, ${t(`look.mode.${household.look.mode}`).toLowerCase()}`;
   return (
     <div className="stack my-look">
@@ -153,6 +159,18 @@ export function MyLookForm({ onDone }: { onDone: () => void }) {
       <div className="field">
         <span className="field-label">{t("look.mode")}</span>
         <ModePick mode={mine.mode} follow={t("look.household")} onChange={(mode) => setMine({ ...mine, mode })} />
+      </div>
+      <div className="field">
+        <span className="field-label">{t("settings.plus")}</span>
+        <div className="segmented labels" role="group" aria-label={t("settings.plus")}>
+          <button type="button" aria-pressed={side === "left"} onClick={() => setSide("left")}>
+            {t("settings.left")}
+          </button>
+          <button type="button" aria-pressed={side === "right"} onClick={() => setSide("right")}>
+            {t("settings.right")}
+          </button>
+        </div>
+        <span className="muted small-text">{t("settings.plusHint")}</span>
       </div>
       <div className="field">
         <span className="field-label">{t("look.scheme")}</span>
@@ -166,11 +184,6 @@ export function MyLookForm({ onDone }: { onDone: () => void }) {
         </div>
       </div>
       {mine.scheme !== null && <SchemePicker scheme={mine.scheme} mode={look.mode} onPick={(scheme) => setMine({ ...mine, scheme })} />}
-      <div className="dialog-actions">
-        <button type="button" className="primary" onClick={onDone}>
-          {t("budget.done")}
-        </button>
-      </div>
     </div>
   );
 }

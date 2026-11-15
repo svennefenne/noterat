@@ -3,6 +3,7 @@ import { Clock, Link2, Plus, Search, Users } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import type * as Y from "yjs";
 import { cleanUrl, initRecipe, readRecipe, recipeIngredients, recipeTitle, writeMinutes, type RecipeView } from "@noterat/core";
+import { useLinkedAction } from "../lib/deepLinks";
 import { useI18n } from "../lib/i18n";
 import { useDocsValues, useHomeItems, useSession, useSyncState } from "../lib/sync-react";
 import { useFileUrl } from "../things/useFileUrl";
@@ -36,6 +37,9 @@ export function RecipesScreen() {
     const id = sync.create("recipe", (doc) => initRecipe(doc, { by: user.id }));
     navigate(`/recipes/${id}`);
   }
+
+  // "Recipe" from the plus button (?new=1): from a link, or written by hand, as the dialog offers
+  useLinkedAction("new", () => setImporting(true));
 
   return (
     <div className="screen">
@@ -85,7 +89,13 @@ export function RecipesScreen() {
         </>
       )}
       <Dialog open={importing} onClose={() => setImporting(false)} title={t("recipes.import")}>
-        <ImportForm onDone={() => setImporting(false)} />
+        <ImportForm
+          onDone={() => setImporting(false)}
+          onWrite={() => {
+            setImporting(false);
+            write();
+          }}
+        />
       </Dialog>
     </div>
   );
@@ -123,7 +133,8 @@ export function Photo({ hash, className = "recipe-photo" }: { hash: string; clas
 }
 
 /** A link to a recipe's page: the recipe is made at once, and the server fills it in. */
-function ImportForm({ onDone }: { onDone: () => void }) {
+/** A recipe from a link (read from the page on the server), or one written by hand instead. */
+function ImportForm({ onDone, onWrite }: { onDone: () => void; onWrite: () => void }) {
   const { t } = useI18n();
   const { sync, user } = useSession();
   const [, navigate] = useLocation();
@@ -146,6 +157,9 @@ function ImportForm({ onDone }: { onDone: () => void }) {
       </label>
       {problem && <Problem>{problem}</Problem>}
       <div className="dialog-actions">
+        <button type="button" className="secondary" onClick={onWrite}>
+          {t("recipes.writeOwn")}
+        </button>
         <button type="submit" className="primary">
           {t("recipes.importGo")}
         </button>

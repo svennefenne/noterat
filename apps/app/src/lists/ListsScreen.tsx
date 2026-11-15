@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Plus, Users } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { initList, isRowDone, objectDocName, readList, type MemberRole } from "@noterat/core";
+import { useLinkedAction } from "../lib/deepLinks";
 import { useI18n } from "../lib/i18n";
 import { useDocValue, useHomeItems, useSession, useSyncState } from "../lib/sync-react";
 import { Dialog } from "../ui";
@@ -13,6 +14,9 @@ export function ListsScreen() {
   const { homeLoaded } = useSyncState();
   const lists = useHomeItems().filter(([, item]) => item.type === "list");
   const [making, setMaking] = useState(false);
+
+  // "List" from the plus button (?new=1): the new list's dialog opens, as the New button opens it
+  useLinkedAction("new", () => setMaking(true));
 
   return (
     <div className="screen">

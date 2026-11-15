@@ -1,8 +1,9 @@
 import { useCallback, useState, type FormEvent } from "react";
-import { HandCoins, Plus, Users, Wallet } from "lucide-react";
+import { ChevronRight, HandCoins, Plus, Users, Wallet } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import type * as Y from "yjs";
 import { balances, formatAmount, initBudget, initSplit, monthSummary, readBudget, readSplit, splitTotal, type BudgetMethod } from "@noterat/core";
+import { useLinkedAction } from "../lib/deepLinks";
 import { useI18n } from "../lib/i18n";
 import { useDocsValues, useHomeItems, useSession, useSyncState } from "../lib/sync-react";
 import { Dialog } from "../ui";
@@ -16,10 +17,24 @@ export function BudgetsScreen() {
   const { t, lang } = useI18n();
   const { sync } = useSession();
   const { homeLoaded } = useSyncState();
+  const [, navigate] = useLocation();
   const items = useHomeItems().filter(([, i]) => i.type === "budget");
   const docs = sync.docsOf("budget", items.map(([id]) => id));
   const cards = useDocsValues(docs, readCard);
   const [making, setMaking] = useState(false);
+  const [choosing, setChoosing] = useState(false);
+  const targets = useExpenseTargets();
+
+  // "Expense" from the plus button (?add=1): straight to the one budget or split this person can add to,
+  // or which of them; with none, this page (with its New buttons) is the answer
+  useLinkedAction(
+    "add",
+    () => {
+      if (targets.length === 1) navigate(`${targets[0]!.path}?add=1`);
+      else if (targets.length > 1) setChoosing(true);
+    },
+    homeLoaded,
+  );
 
   return (
     <div className="screen">
@@ -71,8 +86,48 @@ export function BudgetsScreen() {
         <NewBudget onDone={() => setMaking(false)} />
       </Dialog>
       {homeLoaded && <Splits />}
+      <Dialog open={choosing} onClose={() => setChoosing(false)} title={t("plus.moneyTitle")}>
+        <ul className="choose-list">
+          {targets.map((x) => (
+            <li key={x.path}>
+              <button
+                type="button"
+                className="choose-item"
+                onClick={() => {
+                  setChoosing(false);
+                  navigate(`${x.path}?add=1`);
+                }}
+              >
+                {x.kind === "budget" ? <Wallet aria-hidden size={20} /> : <HandCoins aria-hidden size={20} />}
+                <span>
+                  {x.title || t(x.kind === "budget" ? "untitled.budget" : "untitled.split")}
+                  <small>{t(x.kind === "budget" ? "plus.inBudget" : "plus.inSplit")}</small>
+                </span>
+                <ChevronRight aria-hidden size={18} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </Dialog>
     </div>
   );
+}
+
+const titleOfBudget = (doc: Y.Doc) => readBudget(doc).title;
+const titleOfSplit = (doc: Y.Doc) => readSplit(doc).title;
+
+/** The budgets and splits an expense can go in (the ones this person may write in): budgets first. */
+function useExpenseTargets() {
+  const { sync } = useSession();
+  const home = useHomeItems();
+  const budgets = home.filter(([, i]) => i.type === "budget" && i.role !== "viewer");
+  const splits = home.filter(([, i]) => i.type === "split" && i.role !== "viewer");
+  const budgetTitles = useDocsValues(sync.docsOf("budget", budgets.map(([id]) => id)), titleOfBudget);
+  const splitTitles = useDocsValues(sync.docsOf("split", splits.map(([id]) => id)), titleOfSplit);
+  return [
+    ...budgets.map(([id], i) => ({ kind: "budget" as const, path: `/budget/${id}`, title: budgetTitles[i] ?? "" })),
+    ...splits.map(([id], i) => ({ kind: "split" as const, path: `/budget/splits/${id}`, title: splitTitles[i] ?? "" })),
+  ];
 }
 
 /** Shared costs: a trip, a dinner, a shared house, each its own split; what's in it and where you stand. */

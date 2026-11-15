@@ -3,6 +3,7 @@ import { CalendarPlus, ChevronLeft, ChevronRight, Eye, EyeOff, Link2, MoreVertic
 import type * as Y from "yjs";
 import { CALENDAR_COLORS, initCalendar, occurrences, readCalendar, wallOf, type CalendarView, type MemberRole, type Occurrence } from "@noterat/core";
 import { ApiError } from "../lib/api";
+import { useLinkedAction } from "../lib/deepLinks";
 import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { canReadPhone, phoneAccess, phoneCalendars, phoneEvents, type PhoneCalendar } from "../lib/phoneCalendars";
@@ -93,6 +94,10 @@ export function CalendarScreen() {
     if (!calendarId) calendarId = newCalendar(t("calendar.mine"));
     setEditing({ calendarId, day });
   }
+
+  // "Event" from the plus button (?new=1): a new event today, once the calendars are on the device (so
+  // it goes in one of them rather than a new one)
+  useLinkedAction("new", () => newEvent(today), homeLoaded);
 
   const toggle = (id: string) => {
     const next = new Set(hide);

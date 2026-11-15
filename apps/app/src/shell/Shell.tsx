@@ -1,31 +1,34 @@
 import { useState, type ReactNode } from "react";
-import { Bell, BookHeart, CalendarDays, ChefHat, Cloud, CloudOff, Ellipsis, HardDrive, ListChecks, Loader, Mic, NotebookPen, ScanLine, Search, UserRound, Wallet } from "lucide-react";
+import { Bell, Cloud, CloudOff, HardDrive, Loader, Menu as MenuIcon, Search, UserRound } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { isApp } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { useInvitations, useLock, useSession, useSyncState } from "../lib/sync-react";
 import { pathOf, SECTION } from "../lib/things";
-import { Dialog, Menu, MenuItem, Problem } from "../ui";
-import { LockSettingsForm } from "./LockGate";
-import { MyLookForm } from "../admin/Look";
-import { NotificationSettingsForm } from "./PushSettings";
+import { Menu, MenuItem, Problem } from "../ui";
+import { NavDrawer } from "./NavDrawer";
+import { PlusButton } from "./PlusButton";
+import { isIn, SECTIONS } from "./sections";
 import { UpdateBanner } from "./UpdateBanner";
 import { BUILD, versionText } from "../lib/updates";
 
 /**
- * The signed-in app's frame: the name (home), the sections (along the top on a wide screen, at the
- * bottom on a phone), whether it's synced, invitations, and the account menu.
+ * The signed-in app's frame: the name (home), the sections (along the top on a wide screen; on a phone
+ * in a menu behind the button left of the name, with a plus button low on the screen for making
+ * something new), whether it's synced, invitations, and the account menu.
  */
 export function Shell({ children, onLogout }: { children: ReactNode; onLogout: () => void }) {
-  const { t, lang, setLang } = useI18n();
+  const { t } = useI18n();
   const { user, base, lock } = useSession();
   const { settings } = useLock();
-  const [locking, setLocking] = useState(false);
-  const [pushing, setPushing] = useState<"prefs" | "look" | null>(null);
+  const [drawer, setDrawer] = useState(false);
   const [, navigate] = useLocation();
   return (
     <div className="app">
       <header className="topbar">
+        <button type="button" className="icon-button topbar-menu" aria-label={t("nav.open")} title={t("nav.open")} aria-haspopup="dialog" aria-expanded={drawer} onClick={() => setDrawer(true)}>
+          <MenuIcon aria-hidden size={22} />
+        </button>
         <Link href="/" className="topbar-brand">
           <img src="/icon.svg" alt="" width={28} height={28} />
           <span>Noterat</span>
@@ -41,10 +44,7 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
             <div className="menu-text">{t("menu.signedInAs", { name: user.displayName })}</div>
             {isApp && <div className="menu-text muted">{t("menu.server", { server: new URL(base).host })}</div>}
             <div className="menu-text muted">{t("menu.version", { version: versionText(t, BUILD.version, BUILD.build) })}</div>
-            <MenuItem onSelect={() => setLang(lang === "sv" ? "en" : "sv")}>{t("lang.other")}</MenuItem>
-            <MenuItem onSelect={() => setLocking(true)}>{t("lock.settings")}</MenuItem>
-            <MenuItem onSelect={() => setPushing("prefs")}>{t("push.settings")}</MenuItem>
-            <MenuItem onSelect={() => setPushing("look")}>{t("look.menu")}</MenuItem>
+            <MenuItem onSelect={() => navigate("/settings")}>{t("settings.menu")}</MenuItem>
             {user.role === "admin" && <MenuItem onSelect={() => navigate("/admin")}>{t("admin.menu")}</MenuItem>}
             {settings.scope !== "off" && <MenuItem onSelect={() => lock.lockNow()}>{t("lock.now")}</MenuItem>}
             <MenuItem onSelect={onLogout}>{t("menu.logout")}</MenuItem>
@@ -55,62 +55,24 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
         <UpdateBanner />
         {children}
       </main>
-      <Dialog open={locking} onClose={() => setLocking(false)} title={t("lock.settings")}>
-        <LockSettingsForm onDone={() => setLocking(false)} />
-      </Dialog>
-      <Dialog open={pushing === "prefs"} onClose={() => setPushing(null)} title={t("push.title")}>
-        {pushing === "prefs" && <NotificationSettingsForm onDone={() => setPushing(null)} />}
-      </Dialog>
-      <Dialog open={pushing === "look"} onClose={() => setPushing(null)} title={t("look.title")} wide>
-        {pushing === "look" && <MyLookForm onDone={() => setPushing(null)} />}
-      </Dialog>
+      <PlusButton />
+      <NavDrawer open={drawer} onClose={() => setDrawer(false)} />
     </div>
   );
 }
 
-const SECTIONS = [
-  { type: "list", Icon: ListChecks },
-  { type: "calendar", Icon: CalendarDays },
-  { type: "note", Icon: NotebookPen },
-  { type: "journal", Icon: BookHeart },
-  { type: "memo", Icon: Mic },
-  { type: "scan", Icon: ScanLine },
-  { type: "recipe", Icon: ChefHat },
-  { type: "budget", Icon: Wallet },
-] as const;
-
-/** How many sections fit in a phone's tab bar; the rest are under "More". */
-const ON_PHONE = 4;
-
+/** The sections along the top (a wide screen; a phone has them in the menu instead). */
 function Sections() {
   const { t } = useI18n();
-  const [location, navigate] = useLocation();
-  const here = (type: (typeof SECTIONS)[number]["type"]) => location === SECTION[type] || location.startsWith(`${SECTION[type]}/`);
-  const extraHere = SECTIONS.slice(ON_PHONE).some((s) => here(s.type));
+  const [location] = useLocation();
   return (
     <nav className="sections" aria-label={t("section.nav")}>
-      {SECTIONS.map(({ type, Icon }, i) => (
-        <Link key={type} href={SECTION[type]} className={i >= ON_PHONE ? "section-link extra" : "section-link"} aria-current={here(type) ? "page" : undefined} title={t(`section.${type}`)}>
+      {SECTIONS.map(({ type, Icon }) => (
+        <Link key={type} href={SECTION[type]} className="section-link" aria-current={isIn(location, type) ? "page" : undefined} title={t(`section.${type}`)}>
           <Icon aria-hidden size={20} />
           <span>{t(`section.${type}`)}</span>
         </Link>
       ))}
-      <Menu
-        label={t("section.more")}
-        className={extraHere ? "section-more here" : "section-more"}
-        icon={
-          <>
-            <Ellipsis aria-hidden size={20} />
-            <span>{t("section.more")}</span>
-          </>
-        }
-      >
-        {SECTIONS.slice(ON_PHONE).map(({ type, Icon }) => (
-          <MenuItem key={type} onSelect={() => navigate(SECTION[type])}>
-            <Icon aria-hidden size={18} /> {t(`section.${type}`)}
-          </MenuItem>
-        ))}
-      </Menu>
     </nav>
   );
 }

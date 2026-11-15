@@ -29,7 +29,10 @@ export type Translate = (key: TextKey, vars?: Record<string, string | number>) =
 
 interface I18n {
   lang: Lang;
-  setLang: (lang: Lang) => void;
+  /** the language picked on this device (null: the household's) */
+  chosen: Lang | null;
+  /** (null: the household's again) */
+  setLang: (lang: Lang | null) => void;
   t: Translate;
   /** what went wrong, in words: an ApiError's code, a list's problem, or anything else as a server error */
   errorText: (err: unknown) => string;
@@ -41,9 +44,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const { household } = useHousehold();
   const [chosen, setLangState] = useState<Lang | null>(chosenLang);
   const lang = chosen ?? household.locale.lang;
-  const setLang = useCallback((l: Lang) => {
+  const setLang = useCallback((l: Lang | null) => {
     try {
-      localStorage.setItem(LANG_KEY, l);
+      if (l) localStorage.setItem(LANG_KEY, l);
+      else localStorage.removeItem(LANG_KEY);
     } catch {
       // (kept until the app closes)
     }
@@ -55,8 +59,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       if (err instanceof ListProblem) return t(`problem.${err.code}`, { ...err.vars, max: MAX_ROWS });
       return t(`error.${err instanceof ApiError ? err.code : "server_error"}`, { min: PASSWORD_MIN });
     };
-    return { lang, setLang, t, errorText };
-  }, [lang, setLang]);
+    return { lang, chosen, setLang, t, errorText };
+  }, [lang, chosen, setLang]);
   // (the page's language follows, for screen readers and hyphenation)
   useEffect(() => {
     document.documentElement.lang = lang;
