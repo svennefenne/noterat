@@ -14,6 +14,8 @@ type Ready =
 
 const DISMISSED = "noterat.update.dismissed";
 const EVERY = 6 * 60 * 60 * 1000;
+/** (on the desktop, opening the window asks again, but not more often than this) */
+const SHOWN = 10 * 60 * 1000;
 
 const dismissed = () => {
   try {
@@ -24,9 +26,10 @@ const dismissed = () => {
 };
 
 /**
- * The apps' updates (decision 16), looked for at the start, back from the background and every six
- * hours. The phone downloads a newer APK by itself and offers to install it (Android asks then); the
- * desktop app replaces itself and offers to start again (hidden in the tray, it starts again by itself).
+ * The apps' updates (decision 16), looked for at the start, back from the background (the phone) or
+ * when the window is opened (the desktop app, at most every ten minutes), and every six hours. The
+ * phone downloads a newer APK by itself and offers to install it (Android asks then); the desktop app
+ * replaces itself and offers to start again (hidden in the tray, it starts again by itself).
  */
 export function UpdateBanner() {
   const { t } = useI18n();
@@ -38,9 +41,11 @@ export function UpdateBanner() {
     if (!android && !desktop?.updates) return;
     let gone = false;
     let busy = false;
+    let asked = 0;
     const check = async () => {
       if (busy || gone) return;
       busy = true;
+      asked = Date.now();
       try {
         if (android) {
           const [info, r] = await Promise.all([App.getInfo(), api.androidRelease()]);
@@ -72,11 +77,17 @@ export function UpdateBanner() {
     const back = android ? App.addListener("resume", () => void check()) : null;
     const online = () => void check();
     window.addEventListener("online", online);
+    // the desktop app's window opened from the tray: a newer build since is picked up then
+    const shown = () => {
+      if (!android && document.visibilityState === "visible" && Date.now() - asked > SHOWN) void check();
+    };
+    document.addEventListener("visibilitychange", shown);
     return () => {
       gone = true;
       clearInterval(timer);
       void back?.then((h) => h.remove());
       window.removeEventListener("online", online);
+      document.removeEventListener("visibilitychange", shown);
     };
   }, [api, base]);
 
