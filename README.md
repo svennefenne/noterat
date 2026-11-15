@@ -49,7 +49,8 @@ docker compose up -d    # http://<server>:3300; add --profile https for Caddy wi
 The Android workflow builds an APK on every push to `main` (under Actions, and as a GitHub release once
 the signing key is set up: see [`.github/workflows/android.yml`](.github/workflows/android.yml)). On
 its first screen the app asks for the server's address; a server at home can be plain
-`http://192.168.x.x:3300` on the local network.
+`http://192.168.x.x:3300` on the local network. The APK is built for 64-bit ARM phones only (all from
+the last several years), which keeps it small: ML Kit's text recognition is a large native library.
 
 ## Develop
 
