@@ -23,6 +23,7 @@ import { TitleInput } from "../notes/NoteScreen";
 import { Back, NotHere, useAway, usePresence, useThing } from "../things/parts";
 import { ShareDialog } from "../things/ShareDialog";
 import { useFileUrl } from "../things/useFileUrl";
+import { saveOrShare } from "../lib/save";
 import { Dialog, Menu, MenuItem, Problem } from "../ui";
 import { when } from "../memos/MemosScreen";
 import { ScanStatus } from "./ScanStatus";
@@ -118,7 +119,7 @@ function ScanPage({ id, role }: { id: string; role: MemberRole }) {
           </li>
         ))}
       </ul>
-      {scan.pdf && !isApp && <PdfLink hash={scan.pdf.hash} title={title} />}
+      {scan.pdf && <PdfLink hash={scan.pdf.hash} title={title} />}
 
       <section className="entry-section" aria-label={t("scan.text")}>
         <div className="entry-section-head">
@@ -177,11 +178,15 @@ function PageImage({ hash, large = false }: { hash: string; large?: boolean }) {
 
 function PdfLink({ hash, title }: { hash: string; title: string }) {
   const { t } = useI18n();
-  const url = useFileUrl(hash);
-  if (!url) return null;
+  const { sync } = useSession();
+  // (in the app, the phone's share sheet: save it, send it, open it in a PDF reader)
+  const out = async () => {
+    const blob = await sync.files.get(hash);
+    if (blob) await saveOrShare(blob, `${title}.pdf`, title);
+  };
   return (
-    <a className="secondary small pdf-link" href={url} download={`${title.replace(/[\\/:*?"<>|]+/g, " ").trim() || "scan"}.pdf`}>
-      <FileDown aria-hidden size={16} /> {t("scan.pdf")}
-    </a>
+    <button type="button" className="secondary small pdf-link" onClick={() => void out()}>
+      <FileDown aria-hidden size={16} /> {t(isApp ? "scan.pdfShare" : "scan.pdf")}
+    </button>
   );
 }

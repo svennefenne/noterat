@@ -301,14 +301,14 @@ ENV = {"NOTERAT_URL": "http://noterat:3000", "WORKER_TOKEN": "x" * 40}
 
 @pytest.mark.parametrize(
     ("value", "kinds"),
-    [(None, ("transcribe", "ocr")), ("", ("transcribe", "ocr")), ("ocr", ("ocr",)), (" OCR, transcribe ", ("ocr", "transcribe")), ("transcribe,transcribe", ("transcribe",))],
+    [(None, ("transcribe", "ocr", "recipe")), ("", ("transcribe", "ocr", "recipe")), ("ocr", ("ocr",)), (" OCR, transcribe ", ("ocr", "transcribe")), ("transcribe,transcribe", ("transcribe",))],
 )
 def test_worker_kinds_setting(value: str | None, kinds: tuple[str, ...]):
     env = dict(ENV) if value is None else {**ENV, "WORKER_KINDS": value}
     assert from_env(env).kinds == kinds
 
 
-@pytest.mark.parametrize("value", ["speech", "ocr,scan", ","])
+@pytest.mark.parametrize("value", ["speech", "ocr,scan", ",", "recipes"])
 def test_worker_kinds_errors(value: str):
     with pytest.raises(ConfigError):
         from_env({**ENV, "WORKER_KINDS": value})
@@ -331,6 +331,7 @@ def test_without_ocr_a_worker_goes_on_transcribing(monkeypatch: pytest.MonkeyPat
     model = FakeModel()
     monkeypatch.setattr(cli, "load", lambda config, shutdown: model)
     monkeypatch.setattr(cli, "load_ocr", lambda: None)  # Tesseract missing, say
+    monkeypatch.setattr(cli, "load_recipes", lambda: None)  # and recipe-scrapers (tests/test_recipe.py has it there)
     worker = cli.make_worker(from_env(ENV), cli.Shutdown())
     assert worker is not None
     assert worker.kinds == ("transcribe",)

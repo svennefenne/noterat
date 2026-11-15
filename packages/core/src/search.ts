@@ -3,6 +3,7 @@ import type { ObjectType } from "./docs";
 import { entryBody, entryTitle, readEntry } from "./journal";
 import { readList } from "./lists";
 import { formatAmount } from "./receipts";
+import { readRecipe, recipeIngredients, recipeSteps, recipeTitle } from "./recipes";
 import { readScan, scanText, scanTitle } from "./scans";
 import { memoText, memoTitle, readMemo } from "./memos";
 import { noteBody, noteTitle, readNote } from "./notes";
@@ -53,6 +54,11 @@ export function searchable(type: ObjectType, id: string, doc: Y.Doc): Searchable
       const r = sc.receipt;
       const extra = r ? [r.shop, r.date, r.total !== undefined ? formatAmount(r.total) : ""].filter(Boolean).join(" · ") : "";
       return { id, type, title: scanTitle(sc, text), text: [extra, text].filter(Boolean).join("\n"), tags: [], at: sc.createdAt };
+    }
+    case "recipe": {
+      const r = readRecipe(doc);
+      const ingredients = recipeIngredients(doc).toString();
+      return { id, type, title: recipeTitle(r, ingredients), text: [r.description, ingredients, recipeSteps(doc).toString()].filter(Boolean).join("\n"), tags: r.tags, at: r.createdAt };
     }
     case "journal": {
       const e = readEntry(doc);

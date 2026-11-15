@@ -1,9 +1,11 @@
 """python -m noterat_worker: get ready for the kinds of job it's set to do (load the model, check that
-OCR works), then work for Noterat until stopped.
+OCR and reading recipes work), then work for Noterat until stopped.
 
 Without a server, handy to see that it all works:
   python -m noterat_worker --file memo.webm                 transcribes one recording, prints the result
   python -m noterat_worker --ocr page1.jpg page2.jpg --crop  reads a scan, prints the text, writes the PDF
+  python -m noterat_worker --recipe page.html --url https://www.arla.se/recept/kottbullar/
+                                                             reads a saved web page's recipe, prints it
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from . import __version__
 from .client import Client
 from .config import Config, ConfigError, from_env
 from .model import join_text
+from .recipe import NoRecipe, UndecodablePage, decode_page
 from .scan import DEFAULT_LANGUAGE, Cancelled, OcrFailed, UndecodableImage, UnknownLanguage, join_pages, language_of, page_text
 from .worker import Shutdown, Stopping, Worker
 
@@ -29,13 +32,17 @@ log = logging.getLogger("noterat_worker")
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="noterat-worker", description="Noterat's worker: speech to text and reading scans. Settings come from the environment (see README.md).")
+    parser = argparse.ArgumentParser(prog="noterat-worker", description="Noterat's worker: speech to text, reading scans and reading recipes. Settings come from the environment (see README.md).")
     what = parser.add_mutually_exclusive_group()
     what.add_argument("--file", metavar="AUDIO", help="transcribe this file, print the result and exit (no server needed)")
     what.add_argument("--ocr", metavar="IMAGE", nargs="+", help="read these images as the pages of one scan, print the text, write the PDF next to the first, and exit (no server needed)")
+    what.add_argument("--recipe", metavar="HTML", help="read the recipe in this saved web page, print it as the server would be sent it, and exit (no server needed; nothing is fetched)")
+    parser.add_argument("--url", help="with --recipe: the address the page was saved from, which says which site it is (required)")
     parser.add_argument("--crop", action="store_true", help="with --ocr: find the page in each photo and straighten it (written next to it as NAME.cropped.jpg)")
     parser.add_argument("--language", metavar="CODE", help=f"with --file: the language, e.g. sv (default: detect it); with --ocr: Tesseract's languages (default: {DEFAULT_LANGUAGE})")
     args = parser.parse_args(argv)
+    if args.recipe and not (args.url or "").startswith(("http://", "https://")):
+        parser.error("--recipe needs --url, the address the page was saved from (http:// or https://)")
 
     level = os.environ.get("LOG_LEVEL", "INFO").upper()
     logging.basicConfig(level=level, format="%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", stream=sys.stdout)
@@ -45,7 +52,7 @@ def main(argv: list[str] | None = None) -> int:
         for name in ("httpx", "httpx2", "httpcore", "huggingface_hub", "faster_whisper", "pikepdf"):
             logging.getLogger(name).setLevel(logging.WARNING)
     try:
-        config = from_env(need_server=not (args.file or args.ocr))
+        config = from_env(need_server=not (args.file or args.ocr or args.recipe))
     except ConfigError as e:
         log.error("%s", e)
         return 2
@@ -59,6 +66,8 @@ def main(argv: list[str] | None = None) -> int:
             return transcribe_file(config, args.file, args.language)
         if args.ocr:
             return ocr_files(args.ocr, args.crop, args.language, shutdown)
+        if args.recipe:
+            return recipe_file(args.recipe, args.url)
         log.info("noterat-worker %s", os.environ.get("NOTERAT_VERSION") or __version__)
         worker = make_worker(config, shutdown)
         if worker is None:
@@ -72,22 +81,27 @@ def main(argv: list[str] | None = None) -> int:
 
 def make_worker(config: Config, shutdown: Shutdown) -> Worker | None:
     """A worker for the kinds of job it's set to do (WORKER_KINDS): Whisper is only loaded when it's to
-    transcribe. When OCR can't work here, it goes on without it, saying why; None when nothing's left."""
+    transcribe, OCR only checked when it's to read scans, recipe-scrapers only when it's to read
+    recipes. When OCR or recipes can't work here, it goes on without them, saying why; None when
+    nothing's left."""
     kinds = list(config.kinds)
-    scanner = None
-    if "ocr" in kinds:
-        scanner = load_ocr()
-        if scanner is None:
-            kinds.remove("ocr")
-            if not kinds:
-                log.error("WORKER_KINDS is ocr only, and OCR can't work here (above); stopping")
-                return None
-            log.warning("going on without OCR: scans are left for another worker")
+    scanner = load_ocr() if "ocr" in kinds else None
+    reader = load_recipes() if "recipe" in kinds else None
+    off = [kind for kind, engine in (("ocr", scanner), ("recipe", reader)) if kind in kinds and engine is None]
+    kinds = [kind for kind in kinds if kind not in off]
+    if not kinds:
+        log.error("WORKER_KINDS is %s, and that can't work here (above); stopping", ",".join(config.kinds))
+        return None
+    if "ocr" in off:
+        log.warning("going on without OCR: scans are left for another worker")
+    if "recipe" in off:
+        log.warning("going on without reading recipes: web pages are left for another worker")
     model = load(config, shutdown) if "transcribe" in kinds else None
     return Worker(
         Client(config.noterat_url, config.token),
         model,
         scanner=scanner,
+        reader=reader,
         kinds=tuple(kinds),
         worker_name=config.worker_name,
         model_name=config.model if model is not None else None,
@@ -115,6 +129,25 @@ def load_ocr():
         return None
     log.info("OCR is ready: %s (%s) and OCRmyPDF %s, in %.1f s", ocr.name, ", ".join(ocr.languages), ocr.ocrmypdf, time.monotonic() - started)
     return ocr
+
+
+def load_recipes():
+    """The recipe reader, checked on a small recipe; None (and why, in the log) when it can't work."""
+    try:
+        from .scraper import RecipesUnavailable, Scraper
+
+        reader = Scraper()
+    except ImportError as e:  # recipe-scrapers (or BeautifulSoup, extruct): the recipe extra isn't installed
+        log.error("reading recipes is off: %s isn't installed (pip install '.[recipe]', or use the image)", e.name or e)
+        return None
+    started = time.monotonic()
+    try:
+        reader.warm_up()
+    except RecipesUnavailable as e:
+        log.error("reading recipes is off: %s", e)
+        return None
+    log.info("reading recipes is ready: %s (%d sites of its own, and any page's schema.org data), in %.1f s", reader.name, reader.sites, time.monotonic() - started)
+    return reader
 
 
 def load(config: Config, shutdown: Shutdown):
@@ -219,6 +252,45 @@ def ocr_files(paths: list[str], crop: bool, language: str | None, shutdown: Shut
                 "prepare_seconds": round(prepared - started, 2),
                 "ocr_seconds": round(done - prepared, 2),
                 "pages": out,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
+def recipe_file(path: str, url: str) -> int:
+    """Reads a saved web page as a recipe job would (url only says which site it is; nothing is
+    fetched): prints what done would send as recipe, what read it, what the page didn't have, the
+    encoding and the time it took."""
+    try:
+        from .scraper import Scraper
+
+        reader = Scraper()
+    except ImportError as e:
+        log.error("%s isn't installed (pip install '.[recipe]')", e.name or e)
+        return 1
+    with open(path, "rb") as f:
+        data = f.read()
+    started = time.monotonic()
+    try:
+        html, encoding = decode_page(data)
+        recipe = reader.read(html, url)
+    except (UndecodablePage, NoRecipe) as e:
+        log.error("%s", e)
+        return 1
+    done = time.monotonic()
+    print(
+        json.dumps(
+            {
+                "recipe": recipe.as_json(),
+                "read_by": recipe.read_by,
+                "missing": recipe.missing,
+                "model": reader.name,
+                "encoding": encoding,
+                "bytes": len(data),
+                "read_seconds": round(done - started, 3),
             },
             ensure_ascii=False,
             indent=2,

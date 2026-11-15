@@ -103,9 +103,10 @@ then mostly a document type and its screens.
 - **Calendar**: events with repeats, reminders, several calendars, shared calendars. Integration in
   three steps: show the phone's calendars and subscribe to ICS links; publish Noterat's calendars as an
   ICS feed (Hooden has the repeat rules, `.ics` files and private feed to start from); two-way CalDAV.
-- **Recipes**: import from a URL (the page's schema.org/Recipe data, with recipe-scrapers as a
-  fallback), your own recipes, photos from the camera, gallery or the page (cropped and compressed),
-  scaled servings, "Add the ingredients to the shopping list", shared live or exported as a PDF.
+- **Recipes**: import from a URL (the server fetches the page, only from the internet, and reads its
+  schema.org/Recipe data; recipe-scrapers in the worker as a fallback), your own recipes, photos from the
+  camera, gallery or the page, scaled servings, "Add the ingredients to the shopping list", shared live
+  or exported as a PDF made on the device (decision 9).
 - **Scanner**: ML Kit's document scanner on Android finds the edges, suggests a crop to accept or
   adjust, and straightens the page; ML Kit's text recognition reads it on the phone at once, offline
   too. On the website a photo is enough: the worker finds the page and straightens it. The worker reads
@@ -120,8 +121,8 @@ then mostly a document type and its screens.
 | 1 | Sync core (Yjs + Hocuspocus + local copy), the common frame, **Lists**, sharing by link and in-app notification, running on Unraid | A shared shopping list works in flight mode on both phones and merges right afterwards ✅ in tests and in two browsers; running on Unraid |
 | 2 | Notes, voice memos, the worker (speech to text on the GPU) | A recorded memo becomes text that can be moved to a note ✅ in tests and in a browser, with the worker on a GPU; running on Unraid |
 | 3 | Journal, search across everything, app lock | Search finds text in every section, offline too ✅ in tests, in a browser with the server stopped, and on the phones (fingerprint, photos, voice clips) |
-| 4 | Scanner and OCR | A photographed receipt is cropped by itself and becomes searchable text (phone: ML Kit; web: the worker) |
-| 5 | Recipes | A recipe imported from a URL puts its ingredients on the shopping list and exports as a PDF |
+| 4 | Scanner and OCR | A photographed receipt is cropped by itself and becomes searchable text (phone: ML Kit; web: the worker) ✅ on the web and on Unraid's worker |
+| 5 | Recipes | A recipe imported from a URL puts its ingredients on the shopping list and exports as a PDF ✅ (arla.se, in a browser) |
 | 6 | Calendar | Other calendars show beside your own; a shared family calendar |
 | 7 | Finances | A monthly budget with CSV import and receipts linked to transactions |
 | 8 | Push notifications, desktop app, widgets, polish | Notifications arrive with the app closed; the Linux desktop app works offline like the phone |

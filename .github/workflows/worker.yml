@@ -1,6 +1,6 @@
 name: Worker
 
-# The worker (apps/worker: speech to text and reading scans): only when it (or this file) changes, and
+# The worker (apps/worker: speech to text, reading scans and recipes): only when it (or this file) changes, and
 # for every v* tag (GitHub doesn't apply path filters to tags).
 on:
   push:
@@ -28,8 +28,9 @@ jobs:
           python-version: "3.12"
       # the tests use a fake model and a fake scanner, so they don't need faster-whisper (or its 1.5 GB
       # of CUDA) or Tesseract; OpenCV and Pillow (small) let the real page finder's tests run too, and
-      # the ones that read with Tesseract skip themselves
-      - run: pip install pytest opencv-python-headless==5.0.0.93 pillow==13.0.0
+      # the ones that read with Tesseract skip themselves; recipe-scrapers (pure Python, small) lets
+      # the recipe tests read real pages
+      - run: pip install pytest opencv-python-headless==5.0.0.93 pillow==13.0.0 recipe-scrapers==15.13.0
       - run: python -m pytest -q -rs
 
   # the image on ghcr.io: latest from main, a version from a v* tag (pull requests only build it)

@@ -1,8 +1,9 @@
 """The loop: ask Noterat for a job, fetch its files, do it, send the result back. Forever, through a
 server that restarts, a network that drops and a token that's wrong, without crashing.
 
-Two kinds of job: transcribe (a recording to text) and ocr (a scan's pages to text and a searchable
-PDF, the pages found in photos and straightened first where the job asks for it)."""
+Three kinds of job: transcribe (a recording to text), ocr (a scan's pages to text and a searchable
+PDF, the pages found in photos and straightened first where the job asks for it) and recipe (a web
+page the server fetched, read for its recipe)."""
 
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from typing import Any
 
 from .client import ApiError, Client, JobGone, NotFound, Unauthorized, Unreachable
 from .model import Model, Segment, UndecodableAudio, join_text
+from .recipe import NoRecipe, RecipeReader, UndecodablePage, clip, decode_page
 from .scan import Cancelled, OcrFailed, Page, Scanner, UndecodableImage, UnknownLanguage, join_pages, language_of, page_text
 
 log = logging.getLogger("noterat_worker")
@@ -76,6 +78,7 @@ class Worker:
         worker_name: str,
         model_name: str | None,
         scanner: Scanner | None = None,
+        reader: RecipeReader | None = None,
         kinds: tuple[str, ...] | None = None,
         server: str = "",
         shutdown: Shutdown | None = None,
@@ -90,10 +93,11 @@ class Worker:
         self.client = client
         self.model = model
         self.scanner = scanner
+        self.reader = reader
         # the kinds of job it asks for: those it has what it takes for, unless told otherwise
-        self.kinds = kinds or tuple(kind for kind, engine in (("transcribe", model), ("ocr", scanner)) if engine is not None)
+        self.kinds = kinds or tuple(kind for kind, engine in (("transcribe", model), ("ocr", scanner), ("recipe", reader)) if engine is not None)
         if not self.kinds:
-            raise ValueError("a worker needs a model, a scanner or both")
+            raise ValueError("a worker needs a model, a scanner or a recipe reader")
         self.worker_name = worker_name
         self.model_name = model_name
         self.server = server or client.base
@@ -164,7 +168,7 @@ class Worker:
             self.handle(job)
         except Exception as e:  # a job shaped in a way nobody expected mustn't take the worker down
             log.exception("job %s: unexpected error", job.get("id"))
-            who = "the worker" if job.get("kind") == "ocr" else "the transcriber"
+            who = "the worker" if job.get("kind") in ("ocr", "recipe") else "the transcriber"
             self._failed(str(job["id"]), f"{who} ran into an error ({type(e).__name__}: {e})", retry=True)
 
     # ── a job ──
@@ -179,6 +183,8 @@ class Worker:
             return
         if kind == "ocr":
             self.read_scan(job)
+        elif kind == "recipe":
+            self.read_recipe(job)
         else:
             self.transcribe(job)
 
@@ -395,6 +401,64 @@ class Worker:
                 self.clock() - started,
                 language,
                 len(result["text"]),
+            )
+
+    # ── recipes ──
+
+    def read_recipe(self, job: dict[str, Any]) -> None:
+        """A recipe job: fetch the page the server fetched (the worker never fetches the job's url, nor
+        anything else: the url only says which site the page is from), read its recipe, and send it.
+        It takes a fraction of a second, so there's no progress to report."""
+        job_id = str(job["id"])
+        started = self.clock()
+        if self.shutdown.is_set():
+            self._failed(job_id, "the worker was stopped before it started", retry=True)
+            return
+        files = job.get("files")
+        if not isinstance(files, list) or not files or not isinstance(files[0], dict) or not files[0].get("hash"):
+            self._failed(job_id, "the job names no page", retry=False)
+            return
+        url = job.get("url")
+        if not isinstance(url, str) or not url.startswith(("http://", "https://")):
+            self._failed(job_id, "the job doesn't say which address the page is from", retry=False)
+            return
+        file = files[0]
+        assert self.reader is not None
+
+        with tempfile.TemporaryDirectory(prefix="noterat-worker-", dir=self.temp_dir) as tmp:
+            path = os.path.join(tmp, "page.html")
+            if not self._fetch(job_id, str(file["hash"]), path, what="the page", who="the worker"):
+                return
+            with open(path, "rb") as f:
+                data = f.read()
+        if self.shutdown.is_set():
+            self._failed(job_id, "the worker was stopped before it finished", retry=True)
+            return
+
+        try:
+            html, encoding = decode_page(data, str(file.get("type") or ""))
+            recipe = self.reader.read(html, url)
+        except (UndecodablePage, NoRecipe) as e:
+            log.info("job %s: %s (%s, %d bytes)", job_id, e, url, len(data))
+            self._failed(job_id, str(e), retry=False)
+            return
+        except Exception as e:  # recipe-scrapers (or what it reads with) broke on the page
+            log.exception("job %s: reading %s failed", job_id, url)
+            self._failed(job_id, f"the worker couldn't read the page ({type(e).__name__}: {clip(str(e), 200)})", retry=True)
+            return
+
+        if recipe.missing:
+            log.debug("job %s: not on the page: %s", job_id, ", ".join(f"{k} ({v})" for k, v in recipe.missing.items()))
+        if self._report(job_id, "done", lambda: self.client.done(job_id, {"recipe": recipe.as_json()})):
+            log.info(
+                "job %s: recipe %r read in %.1f s (%s, %s): %d ingredients, %d steps",
+                job_id,
+                recipe.title,
+                self.clock() - started,
+                recipe.read_by,
+                encoding,
+                len(recipe.ingredients),
+                len(recipe.steps),
             )
 
     def _upload(self, job_id: str, path: str, content_type: str) -> dict[str, Any]:

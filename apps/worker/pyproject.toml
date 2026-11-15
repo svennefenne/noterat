@@ -1,7 +1,7 @@
 [project]
 name = "noterat-worker"
 version = "0.1.0"
-description = "Noterat's worker: speech to text (KB-Whisper through faster-whisper) and reading scans (OpenCV, Tesseract through OCRmyPDF), asking a Noterat server for work."
+description = "Noterat's worker: speech to text (KB-Whisper through faster-whisper), reading scans (OpenCV, Tesseract through OCRmyPDF) and reading recipes out of web pages (recipe-scrapers), asking a Noterat server for work."
 requires-python = ">=3.12"
 dependencies = [
   "faster-whisper==1.2.1",
@@ -23,6 +23,9 @@ ocr = [
   "img2pdf==0.6.3",
   "pillow==13.0.0",
 ]
+# Reading a recipe out of a web page the server fetched: recipe-scrapers (pure Python, with
+# BeautifulSoup and extruct), its own scraper for a site it knows, else the page's schema.org data.
+recipe = ["recipe-scrapers==15.13.0"]
 test = ["pytest>=8"]
 
 [project.scripts]

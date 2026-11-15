@@ -1,5 +1,5 @@
-"""A stand-in for Noterat's worker API (docs/decisions/0006, "The worker", and 0008 for scans), on a
-real socket, so the tests go through the worker's actual HTTP code."""
+"""A stand-in for Noterat's worker API (docs/decisions/0006, "The worker", 0008 for scans and 0009 for
+recipes), on a real socket, so the tests go through the worker's actual HTTP code."""
 
 from __future__ import annotations
 
@@ -28,6 +28,8 @@ class FakeNoterat:
     # what POST /next answers, in turn: a job (200), None (204) or a status code; then 204s
     answers: list[Any] = field(default_factory=list)
     files: dict[str, bytes] = field(default_factory=dict)
+    # the Content-Type a file is served with (a recording's, unless it says otherwise: a page is text/html)
+    types: dict[str, str] = field(default_factory=dict)
     # status codes for progress / done / failed, in turn; then 204s
     progress_statuses: list[int] = field(default_factory=list)
     done_statuses: list[int] = field(default_factory=list)
@@ -114,7 +116,7 @@ class FakeNoterat:
             if method != "GET" or data is None:
                 return self._send(h, 404, {"error": "not_found"})
             h.send_response(200)
-            h.send_header("Content-Type", "audio/webm")
+            h.send_header("Content-Type", self.types.get(m.group(1), "audio/webm"))
             h.send_header("Content-Length", str(len(data)))
             h.end_headers()
             h.wfile.write(data)

@@ -6,8 +6,8 @@ import type * as Y from "yjs";
  * maker becomes its owner. Each person also has a home document, "home/<user id>" (see home.ts).
  */
 
-/** The kinds of thing there are (lists from phase 1, notes and voice memos from phase 2, journal entries from phase 3, scans from phase 4; the others arrive with their phases). */
-export const OBJECT_TYPES = ["list", "note", "memo", "journal", "scan"] as const;
+/** The kinds of thing there are (lists from phase 1, notes and voice memos from phase 2, journal entries from phase 3, scans from phase 4, recipes from phase 5; the others arrive with their phases). */
+export const OBJECT_TYPES = ["list", "note", "memo", "journal", "scan", "recipe"] as const;
 export type ObjectType = (typeof OBJECT_TYPES)[number];
 export const isObjectType = (t: unknown): t is ObjectType => OBJECT_TYPES.includes(t as ObjectType);
 
@@ -51,7 +51,7 @@ export function parseDocName(name: string): DocName | null {
 export function docTitle(doc: Y.Doc): string {
   const t = doc.getMap("meta").get("title");
   if (typeof t === "string" && t.trim()) return t.trim().slice(0, 200);
-  for (const name of ["body", "text"]) if (doc.share.has(name)) return firstLine(doc.getText(name).toString());
+  for (const name of ["body", "text", "ingredients"]) if (doc.share.has(name)) return firstLine(doc.getText(name).toString());
   return "";
 }
 

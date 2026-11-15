@@ -8,6 +8,7 @@ import {
   putTranscriptFor,
   readScan,
   recordingToTranscribe,
+  setImportState,
   setOcrState,
   setTranscriptState,
   wantsTranscript,
@@ -40,6 +41,8 @@ interface JobRow {
   /** a transcription's recording; an OCR job's first page (the files are in files) */
   hash: string;
   files: string | null;
+  /** JSON: a recipe job's { url } */
+  input: string | null;
   language: string | null;
   status: "queued" | "working" | "done" | "failed" | "cancelled";
   tries: number;
@@ -55,6 +58,8 @@ export interface JobOptions {
   language: string;
   /** what scans are read in ("swe+eng") */
   ocrLanguage?: string;
+  /** a recipe the worker read, to be put in its document (recipes.ts) */
+  onRecipe?: (objectId: string, recipe: Record<string, unknown>) => Promise<void>;
   lease?: number;
   maxTries?: number;
   wait?: number;
@@ -82,6 +87,8 @@ export function createJobs(o: JobOptions) {
     if (!obj || obj.deleted_at) return;
     if (job.kind === "ocr") {
       if (obj.type === "scan") await sync.changeObject("scan", obj.id, (d) => setOcrState(d, t));
+    } else if (job.kind === "recipe") {
+      if (obj.type === "recipe") await sync.changeObject("recipe", obj.id, (d) => setImportState(d, t));
     } else if (canTranscribe(obj.type)) await sync.changeObject(obj.type, obj.id, (d) => setTranscriptState(obj.type, d, job.hash, t));
   }
 
@@ -124,6 +131,23 @@ export function createJobs(o: JobOptions) {
     wake();
   }
 
+  /** A recipe page the server couldn't read itself, for the worker (recipe-scrapers). */
+  async function enqueueRecipe(objectId: string, htmlHash: string, url: string) {
+    db.prepare("update jobs set status = 'cancelled', updated_at = ? where object_id = ? and kind = 'recipe' and status = 'queued'").run(Date.now(), objectId);
+    const t = Date.now();
+    db.prepare("insert into jobs (id, kind, object_id, hash, files, input, status, created_at, updated_at) values (?, 'recipe', ?, ?, ?, ?, 'queued', ?, ?)").run(
+      randomUUID(),
+      objectId,
+      htmlHash,
+      JSON.stringify([{ hash: htmlHash, crop: false }]),
+      JSON.stringify({ url }),
+      t,
+      t,
+    );
+    await stateOf({ object_id: objectId, hash: htmlHash, kind: "recipe" }, { status: "queued", at: t });
+    wake();
+  }
+
   /** A scan that wants reading, once all its pages are on the server. */
   async function scanReady(objectId: string) {
     const pages = await sync.readObject("scan", objectId, (d) => {
@@ -162,9 +186,9 @@ export function createJobs(o: JobOptions) {
       }
       db.prepare("update jobs set status = 'working', tries = tries + 1, worker = ?, lease_until = ?, updated_at = ? where id = ?").run(worker, t + lease, t, job.id);
       const ok = files.map((f) => ({ hash: f!.hash, type: f!.type, size: f!.size }));
-      return job.kind === "ocr"
-        ? { id: job.id, kind: "ocr" as const, files: ok, language: job.language ?? "swe+eng", crop: wanted.map((f) => f.crop) }
-        : { id: job.id, kind: "transcribe" as const, file: ok[0]!, language: job.language };
+      if (job.kind === "ocr") return { id: job.id, kind: "ocr" as const, files: ok, language: job.language ?? "swe+eng", crop: wanted.map((f) => f.crop) };
+      if (job.kind === "recipe") return { id: job.id, kind: "recipe" as const, files: ok, url: String((JSON.parse(job.input ?? "{}") as { url?: unknown }).url ?? "") };
+      return { id: job.id, kind: "transcribe" as const, file: ok[0]!, language: job.language };
     })();
   }
 
@@ -207,7 +231,7 @@ export function createJobs(o: JobOptions) {
       const body = await readBody(c).catch(() => ({}) as Record<string, unknown>);
       const worker = text(body.worker).slice(0, 60) || "worker";
       // (a worker from before scans says only "transcribe", or nothing)
-      const kinds = (Array.isArray(body.kinds) ? body.kinds : ["transcribe"]).filter((k): k is JobKind => k === "transcribe" || k === "ocr");
+      const kinds = (Array.isArray(body.kinds) ? body.kinds : ["transcribe"]).filter((k): k is JobKind => k === "transcribe" || k === "ocr" || k === "recipe");
       if (!kinds.length) return c.body(null, 204);
       let job = take(worker, kinds);
       if (!job) {
@@ -264,6 +288,13 @@ export function createJobs(o: JobOptions) {
       const body = await readBody(c);
       const result = text(body.text).trim().slice(0, 1_000_000);
       const obj = objectRow(db, job.object_id);
+      if (job.kind === "recipe") {
+        const recipe = body.recipe && typeof body.recipe === "object" ? (body.recipe as Record<string, unknown>) : null;
+        if (!recipe) throw new Fail("bad_request", 400);
+        db.prepare("update jobs set status = 'done', error = null, updated_at = ? where id = ?").run(Date.now(), job.id);
+        if (obj && !obj.deleted_at && obj.type === "recipe") await o.onRecipe?.(obj.id, recipe);
+        return c.body(null, 204);
+      }
       if (job.kind === "ocr") {
         // (the pages and the PDF are files the server has: the scan's own, or ones the worker sent)
         const pages = (Array.isArray(body.pages) ? body.pages : []).map((p: unknown) => {
@@ -345,6 +376,9 @@ export function createJobs(o: JobOptions) {
   return {
     routes,
     enqueue,
+    enqueueRecipe,
+    /** whether there's a worker to give jobs to at all */
+    hasWorker: () => !!o.workerToken,
 
     /** A file finished uploading: a thing that wants it transcribed, or a scan whose pages are all in, gets its job. */
     onUploaded(obj: ObjectRow, hash: string) {
