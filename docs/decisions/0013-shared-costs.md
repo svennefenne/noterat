@@ -25,6 +25,9 @@ what they need to pay it.
 - **A scanned receipt becomes an expense** (decision 8): from the receipt's page ("To shared costs": who
   paid, split equally among everyone) or from the expense dialog ("From a scanned receipt"), with its shop,
   day and total, and the expense keeps the scan's id; a receipt already in a split isn't offered again.
+  The expense dialog can also scan one there and then ("Scan a receipt": the phone's scanner, or a photo on
+  the website); it's kept among the scans like any other, and what it says fills the expense in as soon as
+  it's read (at once on the phone, when the worker has read a photo), but not over what was typed since.
 - **Settling pays the largest debt to the largest claim first**, so n people settle in at most n − 1
   payments. A payment marked as made is recorded as money that changed hands, and the rest is worked out
   again; it can be undone.

@@ -3857,6 +3857,28 @@ p.to-budget {
   overflow-wrap: anywhere;
 }
 
+/* scanning one now, or picking one scanned before */
+.split-receipt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.split-receipt-linked {
+  display: grid;
+  gap: 6px;
+}
+
+.split-receipt-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0;
+  padding-inline: 12px;
+}
+
 .split-receipts ul {
   margin: 4px 0 0;
   padding: 0;

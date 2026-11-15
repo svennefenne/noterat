@@ -2,15 +2,15 @@ import { useRef, useState, type ChangeEvent } from "react";
 import { Camera, FileText, ImagePlus, Receipt, ScanLine, Users } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import type * as Y from "yjs";
-import { formatAmount, initScan, readScan, scanText, scanTitle, type ScanKind, type ScanView } from "@noterat/core";
+import { formatAmount, readScan, scanText, scanTitle, type ScanKind, type ScanView } from "@noterat/core";
 import { useLinkedAction } from "../lib/deepLinks";
-import { hashOf } from "../lib/files";
 import { useI18n } from "../lib/i18n";
 import { canScanOnPhone, photosAsPages, scanOnPhone, type ScannedPage } from "../lib/scanner";
 import { useDocsValues, useHomeItems, useSession, useSyncState } from "../lib/sync-react";
 import { when } from "../memos/MemosScreen";
 import { useFileUrl } from "../things/useFileUrl";
 import { Problem } from "../ui";
+import { useKeepScan } from "./keep";
 import { ScanStatus } from "./ScanStatus";
 
 const readCard = (doc: Y.Doc) => ({ scan: readScan(doc), text: scanText(doc).toString() });
@@ -22,7 +22,8 @@ const readCard = (doc: Y.Doc) => ({ scan: readScan(doc), text: scanText(doc).toS
  */
 export function ScansScreen() {
   const { t } = useI18n();
-  const { sync, user } = useSession();
+  const { sync } = useSession();
+  const keep = useKeepScan();
   const { homeLoaded } = useSyncState();
   const [, navigate] = useLocation();
   const items = useHomeItems().filter(([, item]) => item.type === "scan");
@@ -36,31 +37,12 @@ export function ScansScreen() {
   const picker = useRef<HTMLInputElement>(null);
   const touch = canScanOnPhone || matchMedia("(pointer: coarse)").matches;
 
-  async function keep(pages: ScannedPage[]) {
-    if (!pages.length) return;
-    const hashes = await Promise.all(pages.map((p) => hashOf(p.blob)));
-    const id = sync.create("scan", (doc) =>
-      initScan(doc, {
-        kind,
-        pages: pages.map((p, i) => ({ hash: hashes[i]!, type: "image/jpeg", width: p.width, height: p.height, cropped: p.cropped })),
-        text: pages
-          .map((p) => p.text.trim())
-          .filter(Boolean)
-          .join("\n\n"),
-        read: true,
-        by: user.id,
-      }),
-    );
-    // (the pages on the device before the scan's page shows them)
-    for (const p of pages) await sync.files.add(p.blob, id);
-    navigate(`/scans/${id}`);
-  }
-
   async function scan(take: () => Promise<ScannedPage[]>) {
     setProblem("");
     setBusy(true);
     try {
-      await keep(await take());
+      const id = await keep(await take(), kind);
+      if (id) navigate(`/scans/${id}`);
     } catch {
       setProblem(t("scans.failed"));
     } finally {

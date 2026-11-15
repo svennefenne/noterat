@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Receipt, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { Camera, ImagePlus, Receipt, ScanLine, Trash2, X } from "lucide-react";
 import { Link } from "wouter";
 import type * as Y from "yjs";
 import {
@@ -12,6 +12,7 @@ import {
   readScan,
   removeExpense,
   removePerson,
+  scanText,
   sharesOf,
   swishNumber,
   updateExpense,
@@ -19,12 +20,16 @@ import {
   validEmail,
   wallOf,
   type Person,
+  type ScanView,
   type SplitExpense,
   type SplitMode,
   type SplitView,
 } from "@noterat/core";
 import { useI18n } from "../lib/i18n";
+import { canScanOnPhone, photosAsPages, scanOnPhone, type ScannedPage } from "../lib/scanner";
 import { useDocsValues, useHomeItems, useSession } from "../lib/sync-react";
+import { useKeepScan } from "../scans/keep";
+import { ScanStatus } from "../scans/ScanStatus";
 import { Problem } from "../ui";
 
 /** Someone in the split: a name, a phone number for Swish, an e-mail address for the summary. */
@@ -131,7 +136,7 @@ const MODES: SplitMode[] = ["equal", "shares", "exact"];
  */
 export function ExpenseForm({ doc, view, id, onDone }: { doc: Y.Doc; view: SplitView; id: string | null; onDone: () => void }) {
   const { t, lang } = useI18n();
-  const { user } = useSession();
+  const { sync, user } = useSession();
   const had = view.expenses.find((e) => e.id === id);
   const me = view.people.find((p) => p.userId === user.id)?.id ?? view.people[0]?.id ?? "";
   const everyone = Object.fromEntries(view.people.map((p) => [p.id, 1]));
@@ -147,6 +152,22 @@ export function ExpenseForm({ doc, view, id, onDone }: { doc: Y.Doc; view: Split
     return Object.fromEntries(view.people.map((p) => [p.id, had?.mode === "exact" ? (from[p.id] ? formatAmount(from[p.id]!, lang) : "") : String(from[p.id] ?? 0)]));
   });
   const [problem, setProblem] = useState("");
+
+  // A receipt scanned from here: what it says fills in as it's read (at once from the phone's scanner,
+  // or when the worker has read a photo), but not over what has been typed since.
+  const [reading, setReading] = useState("");
+  const taken = useDocsValues(sync.docsOf("scan", reading ? [reading] : []), readTaken)[0];
+  const live = reading && reading === scan ? taken : undefined;
+  const guess = live?.scan.receipt ?? null;
+  const guessKey = guess ? [guess.shop, guess.total, guess.date].join("|") : "";
+  const [filled, setFilled] = useState(() => ({ key: "", text, amount, date }));
+  if (guess && guessKey !== filled.key) {
+    const next = { ...filled, key: guessKey };
+    if (guess.shop && text === filled.text) setText((next.text = guess.shop));
+    if (guess.total !== undefined && amount === filled.amount) setAmount((next.amount = formatAmount(guess.total, lang)));
+    if (guess.date && date === filled.date) setDate((next.date = guess.date));
+    setFilled(next);
+  }
 
   const ore = readAmount(amount) ?? 0;
   const numeric = useMemo(
@@ -187,10 +208,15 @@ export function ExpenseForm({ doc, view, id, onDone }: { doc: Y.Doc; view: Split
 
   return (
     <form onSubmit={save} className="stack split-expense-form">
-      <ReceiptPick
+      <ReceiptBar
         view={view}
         expenseId={had?.id ?? null}
         scan={scan}
+        live={live}
+        onScanned={(sid) => {
+          setScan(sid);
+          setReading(sid);
+        }}
         onPick={(id, r) => {
           setScan(id);
           if (r.shop) setText(r.shop);
@@ -303,29 +329,42 @@ const readReceiptRow = (doc: Y.Doc) => {
   return s.kind === "receipt" ? { shop: s.receipt?.shop ?? s.title, date: s.receipt?.date ?? "", total: s.receipt?.total, at: s.createdAt } : null;
 };
 
+/** a receipt scanned from the dialog, and whether it has any text yet (the phone's, or the worker's) */
+const readTaken = (doc: Y.Doc) => ({ scan: readScan(doc), read: scanText(doc).length > 0 });
+
 /**
- * An expense from a scanned receipt (decision 13): its shop, day and total filled in, and the expense tied
- * to the scan. Receipts already in this split aren't offered again.
+ * An expense from a receipt (decision 13): scanned here and now (the phone's scanner; on the website a
+ * photo, which the worker reads), or one scanned before. Its shop, day and total fill the expense in,
+ * and the expense is tied to the scan. Receipts already in this split aren't offered again.
  */
-function ReceiptPick({
+function ReceiptBar({
   view,
   expenseId,
   scan,
+  live,
+  onScanned,
   onPick,
   onClear,
 }: {
   view: SplitView;
   expenseId: string | null;
   scan: string;
+  live: { scan: ScanView; read: boolean } | undefined;
+  onScanned: (id: string) => void;
   onPick: (id: string, r: { shop?: string; date?: string; total?: number }) => void;
   onClear: () => void;
 }) {
   const { t, lang } = useI18n();
   const { sync } = useSession();
+  const keep = useKeepScan();
   const items = useHomeItems().filter(([, i]) => i.type === "scan");
   const docs = sync.docsOf("scan", items.map(([id]) => id));
   const rows = useDocsValues(docs, readReceiptRow);
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  const touch = matchMedia("(pointer: coarse)").matches;
   const used = new Set(view.expenses.filter((e) => e.id !== expenseId && e.scan).map((e) => e.scan));
   const receipts: ReceiptRow[] = items
     .map(([id], i) => (rows[i] ? { id, ...rows[i]! } : null))
@@ -334,29 +373,81 @@ function ReceiptPick({
     .slice(0, 12);
   const day = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(t("locale"), { day: "numeric", month: "short" }).replace(/\.$/, "");
   const label = (r: { shop: string; date: string; total?: number }) =>
-    [r.shop || t("split.receipt.noShop"), r.date && day(r.date), r.total !== undefined && `${formatAmount(r.total, lang)} kr`].filter(Boolean).join(" · ");
+    r.shop || r.date || r.total !== undefined
+      ? [r.shop || t("split.receipt.noShop"), r.date && day(r.date), r.total !== undefined && `${formatAmount(r.total, lang)} kr`].filter(Boolean).join(" · ")
+      : t("split.receipt.open");
+
+  async function take(get: () => Promise<ScannedPage[]>) {
+    setFailed(false);
+    setBusy(true);
+    try {
+      const id = await keep(await get(), "receipt");
+      if (id) onScanned(id);
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const picked = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = [...(e.target.files ?? [])];
+    e.target.value = "";
+    if (files.length) void take(() => photosAsPages(files));
+  };
 
   if (scan) {
-    const items0 = items.findIndex(([id]) => id === scan);
-    const r = items0 >= 0 ? rows[items0] : null;
+    const at = items.findIndex(([id]) => id === scan);
+    const r = at >= 0 ? rows[at] : null;
+    const total = live?.scan.receipt?.total;
+    const ocr = live?.scan.ocr?.status;
+    // (no text yet, and the worker still to read it: what it says comes; else, if it found no total, say so)
+    const waiting = !!live && total === undefined && !live.read && ocr !== "done" && ocr !== "failed";
     return (
-      <p className="split-receipt">
-        <Receipt aria-hidden size={16} />
-        <span>
-          {t("split.receipt.linked")} <Link href={`/scans/${scan}`}>{r ? label(r) : t("split.receipt.open")}</Link>
-        </span>
-        <button type="button" className="icon-button" onClick={onClear} aria-label={t("split.receipt.unlink")} title={t("split.receipt.unlink")}>
-          <X aria-hidden size={16} />
-        </button>
-      </p>
+      <div className="split-receipt-linked">
+        <p className="split-receipt">
+          <Receipt aria-hidden size={16} />
+          <span>
+            {t("split.receipt.linked")} <Link href={`/scans/${scan}`}>{r ? label(r) : t("split.receipt.open")}</Link>
+          </span>
+          <button type="button" className="icon-button" onClick={onClear} aria-label={t("split.receipt.unlink")} title={t("split.receipt.unlink")}>
+            <X aria-hidden size={16} />
+          </button>
+        </p>
+        {live && total === undefined && (
+          <p className="muted small-text split-receipt-status" aria-live="polite">
+            {waiting ? (
+              <>
+                <ScanStatus scan={live.scan} /> <span>{t("split.receipt.fills")}</span>
+              </>
+            ) : (
+              t("split.receipt.noTotal")
+            )}
+          </p>
+        )}
+      </div>
     );
   }
-  if (receipts.length === 0) return null;
+
+  // the phone's scanner; a photo on a phone or tablet; a picture from the computer
+  const how = canScanOnPhone ? "scan" : touch ? "photo" : "image";
   return (
     <div className="split-receipts">
-      <button type="button" className="link-button" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <Receipt aria-hidden size={16} /> {t("split.receipt.from")}
-      </button>
+      <div className="split-receipt-actions">
+        <button type="button" className="secondary small" disabled={busy} onClick={() => (canScanOnPhone ? void take(scanOnPhone) : input.current?.click())}>
+          {how === "scan" ? <ScanLine aria-hidden size={16} /> : how === "photo" ? <Camera aria-hidden size={16} /> : <ImagePlus aria-hidden size={16} />}{" "}
+          {busy ? t("scans.busy") : t(`split.receipt.${how}`)}
+        </button>
+        {!canScanOnPhone && (
+          <input ref={input} type="file" accept="image/*" {...(touch ? { capture: "environment" as const } : { multiple: true })} hidden onChange={picked} />
+        )}
+        {receipts.length > 0 && (
+          <button type="button" className="link-button" aria-expanded={open} onClick={() => setOpen(!open)}>
+            <Receipt aria-hidden size={16} /> {t("split.receipt.from")}
+          </button>
+        )}
+      </div>
+      {failed && <Problem>{t("scans.failed")}</Problem>}
       {open && (
         <ul>
           {receipts.map((r) => (
