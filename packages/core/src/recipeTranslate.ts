@@ -149,12 +149,17 @@ names("dill", "dill", "fresh dill");
 names("gräslök", "chives", "fresh chives");
 names("mynta", "mint", "fresh mint", "mint leaves");
 // meat and fish
-names("nötfärs", "ground beef", "lean ground beef", "minced beef", "beef mince");
+names("nötfärs", "ground beef", "lean ground beef", "extra-lean ground beef", "minced beef", "beef mince", "ground chuck", "ground sirloin", "ground round");
 names("fläskfärs", "ground pork", "minced pork", "pork mince");
 names("kalkonfärs", "ground turkey", "turkey mince");
 names("kycklingfärs", "ground chicken", "chicken mince");
 names("lammfärs", "ground lamb", "lamb mince");
 names("köttfärs", "ground meat", "minced meat");
+// ("ground veal" is "jordnötskött" to the model: ground as in the earth's, and then some)
+names("kalvfärs", "ground veal", "minced veal", "veal mince");
+names("viltfärs", "ground venison", "minced venison", "venison mince");
+names("bisonfärs", "ground bison", "minced bison");
+names("salsiccia", "italian sausage", "ground italian sausage", "bulk italian sausage", "italian sausage, casings removed");
 names("kycklingfilé", "chicken breast", "boneless skinless chicken breast", "boneless, skinless chicken breast");
 names("kycklingfiléer", "chicken breasts", "boneless skinless chicken breasts", "boneless, skinless chicken breasts");
 names("kycklinglår", "chicken thigh", "chicken thighs", "bone-in chicken thighs");
@@ -351,7 +356,8 @@ const BEFORE: [RegExp, string][] = [
   [/\bdouble cream\b/gi, "whipping cream"],
   [/\b(?:scallions?|green onions?)\b/gi, "spring onions"],
   [/\bcilantro\b/gi, "coriander"],
-  [/\bground (beef|pork|lamb|turkey|chicken)\b/gi, "minced $1"],
+  [/\bground (?:chuck|sirloin|round)\b/gi, "minced beef"],
+  [/\bground (beef|pork|lamb|turkey|chicken|veal|venison|bison|meat)\b/gi, "minced $1"],
   [/\bcloves? (?:of )?garlic\b/gi, "garlic cloves"],
   [/\bbaking soda\b/gi, "bicarbonate"],
   [/\b(?:powdered|confectioners'?) sugar\b/gi, "icing sugar"],
@@ -382,6 +388,11 @@ const AFTER: [RegExp, string][] = [
   [/\bdet malda nötköttet\b/gi, "nötfärsen"],
   [/\bmalet fläsk(?:kött)?\b/gi, "fläskfärs"],
   [/\bdet malda fläsk(?:köttet|et)\b/gi, "fläskfärsen"],
+  [/\bmalet kalvkött\b|\bjordnötskött\b/gi, "kalvfärs"],
+  [/\bmalet lamm(?:kött)?\b/gi, "lammfärs"],
+  [/\bmald kalkon\b/gi, "kalkonfärs"],
+  [/\bmald kyckling\b/gi, "kycklingfärs"],
+  [/\bmalet vilt(?:kött)?\b/gi, "viltfärs"],
   [/\böver (?:en )?(låg|medel|medelhög|hög|svag|stark) ?värme\b/gi, "på $1värme"],
   [/\b[Ll]aga mat\b/g, "tillaga"],
   [/\bIsbildningssocker\b|\bglasyrsocker\b/gi, "florsocker"],

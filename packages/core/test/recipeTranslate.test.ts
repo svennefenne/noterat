@@ -89,6 +89,14 @@ describe("translating a recipe", () => {
     );
   });
 
+  it("knows the minced meats, which the model gets wrong (\"ground veal\" is \"jordnötskött\" to it)", () => {
+    const r: RecipeTexts = { title: "", description: "", ingredients: "1 pound ground beef\n½ pound ground veal\n½ pound ground pork\n1 pound ground chuck", steps: "Mix the ground veal with the pork." };
+    expect(translationTexts(r)).toEqual(["Mix the minced veal with the pork."]);
+    const t = translatedRecipe(r, ["Blanda malet kalvkött med fläsket."]);
+    expect(t.ingredients).toBe("450 g nötfärs\n230 g kalvfärs\n230 g fläskfärs\n450 g nötfärs");
+    expect(t.steps).toBe("Blanda kalvfärs med fläsket.");
+  });
+
   it("keeps the English where the model made something up, or went on and on; mends its fractions and capitals", () => {
     const r: RecipeTexts = { title: "", description: "", ingredients: "1 aubergine, roasted\n1 tbsp za'atar", steps: "Bake for 1 ½ hours. Serve." };
     expect(translationTexts(r)).toEqual(["roasted", "za'atar", "Bake for 1 ½ hours.", "Serve."]);
