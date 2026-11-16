@@ -1,11 +1,13 @@
 """python -m noterat_worker: get ready for the kinds of job it's set to do (load the model, check that
-OCR and reading recipes work), then work for Noterat until stopped.
+OCR, reading recipes and translating work), then work for Noterat until stopped.
 
 Without a server, handy to see that it all works:
   python -m noterat_worker --file memo.webm                 transcribes one recording, prints the result
   python -m noterat_worker --ocr page1.jpg page2.jpg --crop  reads a scan, prints the text, writes the PDF
   python -m noterat_worker --recipe page.html --url https://www.arla.se/recept/kottbullar/
                                                              reads a saved web page's recipe, prints it
+  python -m noterat_worker --translate "Stir in the cream." "Simmer for 5 minutes."
+                                                             translates English into Swedish, prints it
 """
 
 from __future__ import annotations
@@ -32,11 +34,12 @@ log = logging.getLogger("noterat_worker")
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="noterat-worker", description="Noterat's worker: speech to text, reading scans and reading recipes. Settings come from the environment (see README.md).")
+    parser = argparse.ArgumentParser(prog="noterat-worker", description="Noterat's worker: speech to text, reading scans, reading recipes and translating them. Settings come from the environment (see README.md).")
     what = parser.add_mutually_exclusive_group()
     what.add_argument("--file", metavar="AUDIO", help="transcribe this file, print the result and exit (no server needed)")
     what.add_argument("--ocr", metavar="IMAGE", nargs="+", help="read these images as the pages of one scan, print the text, write the PDF next to the first, and exit (no server needed)")
     what.add_argument("--recipe", metavar="HTML", help="read the recipe in this saved web page, print it as the server would be sent it, and exit (no server needed; nothing is fetched)")
+    what.add_argument("--translate", metavar="TEXT", nargs="+", help="translate these pieces of English into Swedish as a translate job would, print them and exit (no server needed)")
     parser.add_argument("--url", help="with --recipe: the address the page was saved from, which says which site it is (required)")
     parser.add_argument("--crop", action="store_true", help="with --ocr: find the page in each photo and straighten it (written next to it as NAME.cropped.jpg)")
     parser.add_argument("--language", metavar="CODE", help=f"with --file: the language, e.g. sv (default: detect it); with --ocr: Tesseract's languages (default: {DEFAULT_LANGUAGE})")
@@ -52,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
         for name in ("httpx", "httpx2", "httpcore", "huggingface_hub", "faster_whisper", "pikepdf"):
             logging.getLogger(name).setLevel(logging.WARNING)
     try:
-        config = from_env(need_server=not (args.file or args.ocr or args.recipe))
+        config = from_env(need_server=not (args.file or args.ocr or args.recipe or args.translate))
     except ConfigError as e:
         log.error("%s", e)
         return 2
@@ -68,6 +71,8 @@ def main(argv: list[str] | None = None) -> int:
             return ocr_files(args.ocr, args.crop, args.language, shutdown)
         if args.recipe:
             return recipe_file(args.recipe, args.url)
+        if args.translate:
+            return translate_texts(config, args.translate)
         log.info("noterat-worker %s", os.environ.get("NOTERAT_VERSION") or __version__)
         worker = make_worker(config, shutdown)
         if worker is None:
@@ -87,7 +92,8 @@ def make_worker(config: Config, shutdown: Shutdown) -> Worker | None:
     kinds = list(config.kinds)
     scanner = load_ocr() if "ocr" in kinds else None
     reader = load_recipes() if "recipe" in kinds else None
-    off = [kind for kind, engine in (("ocr", scanner), ("recipe", reader)) if kind in kinds and engine is None]
+    translator = load_translator(config) if "translate" in kinds else None
+    off = [kind for kind, engine in (("ocr", scanner), ("recipe", reader), ("translate", translator)) if kind in kinds and engine is None]
     kinds = [kind for kind in kinds if kind not in off]
     if not kinds:
         log.error("WORKER_KINDS is %s, and that can't work here (above); stopping", ",".join(config.kinds))
@@ -96,12 +102,15 @@ def make_worker(config: Config, shutdown: Shutdown) -> Worker | None:
         log.warning("going on without OCR: scans are left for another worker")
     if "recipe" in off:
         log.warning("going on without reading recipes: web pages are left for another worker")
+    if "translate" in off:
+        log.warning("going on without translating: recipes to translate are left for another worker")
     model = load(config, shutdown) if "transcribe" in kinds else None
     return Worker(
         Client(config.noterat_url, config.token),
         model,
         scanner=scanner,
         reader=reader,
+        translator=translator,
         kinds=tuple(kinds),
         worker_name=config.worker_name,
         model_name=config.model if model is not None else None,
@@ -148,6 +157,21 @@ def load_recipes():
         return None
     log.info("reading recipes is ready: %s (%d sites of its own, and any page's schema.org data), in %.1f s", reader.name, reader.sites, time.monotonic() - started)
     return reader
+
+
+def load_translator(config: Config):
+    """The translator (downloaded the first time), checked on a sentence; None (and why, in the log) when it can't work."""
+    from .translate import OpusMt, TranslatorUnavailable
+
+    started = time.monotonic()
+    try:
+        translator = OpusMt(config.models_dir)
+        translator.warm_up()
+    except TranslatorUnavailable as e:
+        log.error("translating is off: %s", e)
+        return None
+    log.info("translating is ready: %s (English to Swedish, on the CPU), in %.1f s", translator.name, time.monotonic() - started)
+    return translator
 
 
 def load(config: Config, shutdown: Shutdown):
@@ -292,6 +316,30 @@ def recipe_file(path: str, url: str) -> int:
                 "bytes": len(data),
                 "read_seconds": round(done - started, 3),
             },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
+    return 0
+
+
+def translate_texts(config: Config, texts: list[str]) -> int:
+    """Translates the pieces as a translate job would (they go as they are: the server's glossary and
+    rewrites aren't here), and prints them with the time it took."""
+    from .translate import OpusMt, TranslatorUnavailable
+
+    started = time.monotonic()
+    try:
+        translator = OpusMt(config.models_dir)
+    except TranslatorUnavailable as e:
+        log.error("%s", e)
+        return 1
+    loaded = time.monotonic()
+    out = translator.translate(texts, "en", "sv")
+    done = time.monotonic()
+    print(
+        json.dumps(
+            {"texts": out, "model": translator.name, "load_seconds": round(loaded - started, 2), "translate_seconds": round(done - loaded, 3)},
             ensure_ascii=False,
             indent=2,
         )

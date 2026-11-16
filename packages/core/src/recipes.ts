@@ -3,6 +3,7 @@ import { firstLine } from "./docs";
 import type { Photo } from "./journal";
 import type { Transcription, TranscriptionStatus } from "./memos";
 import { writeSteps, type PastedRecipe } from "./recipeText";
+import type { RecipeLanguage, RecipeTexts } from "./recipeTranslate";
 
 /**
  * A recipe (decision 9). Its document:
@@ -15,6 +16,9 @@ import { writeSteps, type PastedRecipe } from "./recipeText";
  * - photoChoices: the page's pictures, when it wasn't clear which is the recipe's, to choose from
  *   (meta's guessed: the recipe was read from the page's headings, to be looked over); both go when
  *   the choosing is done
+ * - translation: the recipe in another language (recipeTranslate.ts): from, to, which it shows
+ *   (shown), the words it came with (original) and the translation (translated), and how the worker's
+ *   translating is coming along (status, error, at)
  */
 
 export interface RecipeView {
@@ -31,6 +35,17 @@ export interface RecipeView {
   /** read from the page's headings, not from a recipe on it: worth looking over */
   guessed: boolean;
   photoChoices: PhotoChoice[];
+  translation: RecipeTranslation | null;
+}
+
+/** A recipe's translation: into what, which the recipe shows, and how translating it is coming along. */
+export interface RecipeTranslation {
+  from: RecipeLanguage;
+  to: RecipeLanguage;
+  /** what the recipe shows: the translation, the words it came with, or neither yet (it's being translated the first time) */
+  shown: "translated" | "original" | null;
+  /** the worker's job: none, or queued, working, done or failed */
+  job: Transcription | null;
 }
 
 /** A picture on the recipe's page, kept as a file of the recipe's, to choose among its photos. */
@@ -60,6 +75,8 @@ const tagsArray = (doc: Y.Doc) => doc.getArray<string>("tags");
 const photosArray = (doc: Y.Doc) => doc.getArray<Photo>("photos");
 const importMap = (doc: Y.Doc) => doc.getMap<unknown>("import");
 const choicesArray = (doc: Y.Doc) => doc.getArray<PhotoChoice>("photoChoices");
+const translationMap = (doc: Y.Doc) => doc.getMap<unknown>("translation");
+const LANGUAGES: RecipeLanguage[] = ["sv", "en"];
 
 const STATUSES: TranscriptionStatus[] = ["wanted", "queued", "working", "done", "failed"];
 /**
@@ -122,7 +139,108 @@ export function readRecipe(doc: Y.Doc): RecipeView {
     photoChoices: choicesArray(doc)
       .toArray()
       .filter((p) => p && typeof p.hash === "string"),
+    translation: readTranslation(doc),
   };
+}
+
+function readTranslation(doc: Y.Doc): RecipeTranslation | null {
+  const tr = translationMap(doc);
+  const from = LANGUAGES.find((l) => l === tr.get("from"));
+  const to = LANGUAGES.find((l) => l === tr.get("to"));
+  if (!from || !to) return null;
+  const shown = tr.get("shown");
+  const status = tr.get("status") as TranscriptionStatus;
+  return {
+    from,
+    to,
+    shown: shown === "translated" || shown === "original" ? shown : null,
+    job: STATUSES.includes(status) ? { status, error: typeof tr.get("error") === "string" ? (tr.get("error") as string) : undefined, at: Number(tr.get("at")) || 0 } : null,
+  };
+}
+
+/** What a translation takes the place of, as the recipe reads now. */
+export function recipeTexts(doc: Y.Doc): RecipeTexts {
+  const m = meta(doc);
+  const str = (v: unknown) => (typeof v === "string" ? v : "");
+  return { title: str(m.get("title")), description: str(m.get("description")), ingredients: recipeIngredients(doc).toString(), steps: recipeSteps(doc).toString() };
+}
+
+const textsOf = (v: unknown): RecipeTexts | null => {
+  const o = v as Partial<RecipeTexts> | null;
+  return o && typeof o === "object" && (["title", "description", "ingredients", "steps"] as const).every((k) => typeof o[k] === "string") ? (o as RecipeTexts) : null;
+};
+const sameTexts = (a: RecipeTexts, b: RecipeTexts) => a.title === b.title && a.description === b.description && a.ingredients === b.ingredients && a.steps === b.steps;
+
+function writeTexts(doc: Y.Doc, t: RecipeTexts) {
+  const m = meta(doc);
+  if (m.get("title") !== t.title) m.set("title", oneLine(t.title, RECIPE_TITLE_MAX));
+  if ((m.get("description") ?? "") !== t.description) {
+    if (t.description) m.set("description", t.description);
+    else m.delete("description");
+  }
+  for (const [y, s] of [
+    [recipeIngredients(doc), t.ingredients],
+    [recipeSteps(doc), t.steps],
+  ] as const) {
+    if (y.toString() === s) continue;
+    y.delete(0, y.length);
+    y.insert(0, s);
+  }
+}
+
+/** How translating the recipe is coming along (the server's, as the worker goes); from and to when it's asked for. */
+export function setTranslateState(doc: Y.Doc, t: Transcription, langs?: { from: RecipeLanguage; to: RecipeLanguage }) {
+  const tr = translationMap(doc);
+  doc.transact(() => {
+    for (const k of ["status", "error", "progress", "at"]) if (!(k in t) || (t as unknown as Record<string, unknown>)[k] === undefined) tr.delete(k);
+    for (const [k, v] of Object.entries(t)) if (v !== undefined && k !== "reason") tr.set(k, v);
+    if (langs && (tr.get("from") !== langs.from || tr.get("to") !== langs.to)) {
+      tr.set("from", langs.from);
+      tr.set("to", langs.to);
+      tr.delete("translated");
+      if (tr.get("shown") === "translated") tr.delete("shown");
+    }
+  });
+}
+
+/** The worker's translation, into the recipe: it shows it, and keeps the words it came with to go back to. */
+export function putRecipeTranslation(doc: Y.Doc, o: { from: RecipeLanguage; to: RecipeLanguage; original: RecipeTexts; translated: RecipeTexts }) {
+  const tr = translationMap(doc);
+  doc.transact(() => {
+    tr.set("from", o.from);
+    tr.set("to", o.to);
+    tr.set("original", { ...o.original });
+    tr.set("translated", { ...o.translated });
+    writeTexts(doc, o.translated);
+    tr.set("shown", "translated");
+    for (const k of ["error", "progress"]) tr.delete(k);
+    tr.set("status", "done");
+    tr.set("at", Date.now());
+  });
+}
+
+/**
+ * Show the recipe's translation, or the words it came with: what it shows now is kept (with whatever
+ * someone changed in it) in place of the one it goes to. False when there's nothing to show.
+ */
+export function showRecipeVersion(doc: Y.Doc, which: "translated" | "original"): boolean {
+  const tr = translationMap(doc);
+  const to = textsOf(tr.get(which));
+  const now = tr.get("shown");
+  if (!to || now === which || (now !== "translated" && now !== "original")) return false;
+  doc.transact(() => {
+    tr.set(now, recipeTexts(doc));
+    writeTexts(doc, to);
+    tr.set("shown", which);
+  });
+  return true;
+}
+
+/** Whether the recipe's translation can be shown as it is: it shows the words it came with, and they're as they were translated. */
+export function translationFits(doc: Y.Doc): boolean {
+  const tr = translationMap(doc);
+  const original = textsOf(tr.get("original"));
+  return tr.get("shown") === "original" && !!textsOf(tr.get("translated")) && !!original && sameTexts(original, recipeTexts(doc));
 }
 
 export function setRecipeMeta(doc: Y.Doc, patch: { title?: string; source?: string; servings?: number | null; minutes?: number | null }) {

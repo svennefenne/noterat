@@ -2591,6 +2591,39 @@ a.icon-button {
   margin: 0 0 8px;
 }
 
+/* "Portioner  − 6 +  Översätt" above the ingredients' heading */
+.recipe-servings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 4px 0;
+}
+
+.recipe-servings-label {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* (on a phone the row is tight: "Portioner − 8 + Visa original" on one line, without the button's icon) */
+@media (max-width: 480px) {
+  .recipe-servings-row {
+    column-gap: 8px;
+  }
+
+  .recipe-servings-row .servings-field {
+    margin: 0;
+  }
+
+  .recipe-translate svg {
+    display: none;
+  }
+}
+
+.recipe-note {
+  margin: 4px 0 0;
+}
+
 .servings-field {
   display: inline-flex;
   align-items: center;

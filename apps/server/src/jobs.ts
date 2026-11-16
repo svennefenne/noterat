@@ -3,16 +3,25 @@ import type { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import {
   canTranscribe,
+  canTranslate,
   MAX_FILE_SIZE,
   putOcrResult,
+  putRecipeTranslation,
   putTranscriptFor,
   readScan,
+  recipeLanguage,
+  recipeTexts,
   recordingToTranscribe,
   setImportState,
   setOcrState,
   setTranscriptState,
+  setTranslateState,
+  translatedRecipe,
+  translationTexts,
   wantsTranscript,
   type JobKind,
+  type RecipeLanguage,
+  type RecipeTexts,
   type TranscriberInfo,
   type Transcription,
   type WorkerJob,
@@ -29,7 +38,9 @@ import type { Sync } from "./sync";
  * says how far it's got, and hands back the text, which the server writes into the thing's document
  * (core's transcripts.ts says where), so it shows on every device at once. A scan's pages get a job
  * of the other kind, "ocr" (decision 8): the worker crops what isn't cropped yet, reads the pages,
- * and sends back the cropped pages and a searchable PDF as files of their own.
+ * and sends back the cropped pages and a searchable PDF as files of their own. A recipe's "translate"
+ * job (decision 9) is text only: the pieces core's recipeTranslate.ts picks out, sent back translated
+ * and put in their places here.
  * The worker has a job for `lease` from its last word; one that goes quiet longer loses it, and the job
  * is queued again (up to `maxTries` tries in all).
  */
@@ -41,7 +52,7 @@ interface JobRow {
   /** a transcription's recording; an OCR job's first page (the files are in files) */
   hash: string;
   files: string | null;
-  /** JSON: a recipe job's { url } */
+  /** JSON: a recipe job's { url }; a translate job's TranslateInput */
   input: string | null;
   language: string | null;
   status: "queued" | "working" | "done" | "failed" | "cancelled";
@@ -69,6 +80,16 @@ export interface JobOptions {
 
 export type Jobs = ReturnType<typeof createJobs>;
 
+/** What a translate job is given: the recipe as it was asked for, and the pieces of it for the model. */
+interface TranslateInput {
+  from: RecipeLanguage;
+  to: RecipeLanguage;
+  texts: string[];
+  recipe: RecipeTexts;
+}
+
+const ALL_KINDS: JobKind[] = ["transcribe", "ocr", "recipe", "translate"];
+
 export function createJobs(o: JobOptions) {
   const { db, sync } = o;
   const lease = o.lease ?? 10 * 60_000;
@@ -77,6 +98,8 @@ export function createJobs(o: JobOptions) {
   const waiters = new Set<() => void>();
   let lastSeen = 0;
   let polling = 0;
+  // the kinds of job the worker last asked for (an older one doesn't translate)
+  let lastKinds: JobKind[] = [];
 
   const jobRow = (id: string) => (db.prepare("select * from jobs where id = ?").get(id) as JobRow | undefined) ?? null;
   const wake = () => {
@@ -91,6 +114,8 @@ export function createJobs(o: JobOptions) {
       if (obj.type === "scan") await sync.changeObject("scan", obj.id, (d) => setOcrState(d, t));
     } else if (job.kind === "recipe") {
       if (obj.type === "recipe") await sync.changeObject("recipe", obj.id, (d) => setImportState(d, t));
+    } else if (job.kind === "translate") {
+      if (obj.type === "recipe") await sync.changeObject("recipe", obj.id, (d) => setTranslateState(d, t));
     } else if (canTranscribe(obj.type)) await sync.changeObject(obj.type, obj.id, (d) => setTranscriptState(obj.type, d, job.hash, t));
   }
 
@@ -151,6 +176,21 @@ export function createJobs(o: JobOptions) {
   }
 
   /** A scan that wants reading, once all its pages are on the server. */
+  /** Queue a recipe to be translated (in place of one still waiting). */
+  async function enqueueTranslate(objectId: string, input: TranslateInput) {
+    db.prepare("update jobs set status = 'cancelled', updated_at = ? where object_id = ? and kind = 'translate' and status = 'queued'").run(Date.now(), objectId);
+    const t = Date.now();
+    db.prepare("insert into jobs (id, kind, object_id, hash, files, input, status, created_at, updated_at) values (?, 'translate', ?, '', '[]', ?, 'queued', ?, ?)").run(
+      randomUUID(),
+      objectId,
+      JSON.stringify(input),
+      t,
+      t,
+    );
+    await sync.changeObject("recipe", objectId, (d) => setTranslateState(d, { status: "queued", at: t }, { from: input.from, to: input.to }));
+    wake();
+  }
+
   async function scanReady(objectId: string) {
     const pages = await sync.readObject("scan", objectId, (d) => {
       const s = readScan(d);
@@ -190,6 +230,10 @@ export function createJobs(o: JobOptions) {
       const ok = files.map((f) => ({ hash: f!.hash, type: f!.type, size: f!.size }));
       if (job.kind === "ocr") return { id: job.id, kind: "ocr" as const, files: ok, language: job.language ?? "swe+eng", crop: wanted.map((f) => f.crop) };
       if (job.kind === "recipe") return { id: job.id, kind: "recipe" as const, files: ok, url: String((JSON.parse(job.input ?? "{}") as { url?: unknown }).url ?? "") };
+      if (job.kind === "translate") {
+        const input = JSON.parse(job.input ?? "{}") as TranslateInput;
+        return { id: job.id, kind: "translate" as const, from: input.from, to: input.to, texts: input.texts };
+      }
       return { id: job.id, kind: "transcribe" as const, file: ok[0]!, language: job.language };
     })();
   }
@@ -233,7 +277,8 @@ export function createJobs(o: JobOptions) {
       const body = await readBody(c).catch(() => ({}) as Record<string, unknown>);
       const worker = text(body.worker).slice(0, 60) || "worker";
       // (a worker from before scans says only "transcribe", or nothing)
-      const kinds = (Array.isArray(body.kinds) ? body.kinds : ["transcribe"]).filter((k): k is JobKind => k === "transcribe" || k === "ocr" || k === "recipe");
+      const kinds = (Array.isArray(body.kinds) ? body.kinds : ["transcribe"]).filter((k): k is JobKind => ALL_KINDS.includes(k as JobKind));
+      lastKinds = kinds;
       if (!kinds.length) return c.body(null, 204);
       let job = take(worker, kinds);
       if (!job) {
@@ -290,6 +335,17 @@ export function createJobs(o: JobOptions) {
       const body = await readBody(c);
       const result = text(body.text).trim().slice(0, 1_000_000);
       const obj = objectRow(db, job.object_id);
+      if (job.kind === "translate") {
+        const input = JSON.parse(job.input ?? "{}") as TranslateInput;
+        const texts = Array.isArray(body.texts) ? body.texts.map((t: unknown) => (typeof t === "string" ? t.slice(0, 5000) : "")) : null;
+        if (!texts || texts.length !== input.texts.length) throw new Fail("bad_request", 400);
+        db.prepare("update jobs set status = 'done', error = null, updated_at = ? where id = ?").run(Date.now(), job.id);
+        if (obj && !obj.deleted_at && obj.type === "recipe")
+          await sync.changeObject("recipe", obj.id, (d) =>
+            putRecipeTranslation(d, { from: input.from, to: input.to, original: input.recipe, translated: translatedRecipe(input.recipe, texts) }),
+          );
+        return c.body(null, 204);
+      }
       if (job.kind === "recipe") {
         const recipe = body.recipe && typeof body.recipe === "object" ? (body.recipe as Record<string, unknown>) : null;
         if (!recipe) throw new Fail("bad_request", 400);
@@ -370,6 +426,35 @@ export function createJobs(o: JobOptions) {
         obj.id,
         pages.map((p) => ({ hash: p.hash, crop: !p.cropped })),
       );
+      return c.body(null, 202);
+    });
+
+    /**
+     * Translate a recipe (decision 9): by its owner or an editor. It's put in place of the recipe's words
+     * (which are kept, to go back to) once the worker has done it; a recipe with nothing for the model to
+     * translate (all of it in the glossary) is done at once.
+     */
+    app.post("/api/objects/:id/translate", auth, async (c) => {
+      const body = await readBody(c).catch(() => ({}) as Record<string, unknown>);
+      const obj = objectRow(db, c.req.param("id"));
+      if (!obj) throw new Fail("not_synced", 404);
+      if (obj.deleted_at) throw new Fail("not_found", 404);
+      const role = roleOf(db, obj.id, c.get("user").id);
+      if (!role || role === "viewer") throw new Fail("forbidden", 403);
+      if (obj.type !== "recipe") throw new Fail("wrong_type", 400);
+      // (no worker; or one that asks for work, but not for this: one from before translating)
+      const online = polling > 0 || Date.now() - lastSeen < 60_000;
+      if (!o.workerToken || (online && !lastKinds.includes("translate"))) throw new Fail("no_translator", 409);
+      const recipe = await sync.readObject("recipe", obj.id, (d) => recipeTexts(d));
+      const to: RecipeLanguage = body.to === "en" ? "en" : "sv";
+      const from = body.from === "en" || body.from === "sv" ? body.from : recipeLanguage(`${recipe.ingredients}\n${recipe.steps}`);
+      if (!from || !canTranslate(from, to)) throw new Fail("bad_request", 400);
+      const texts = translationTexts(recipe);
+      if (!texts.length) {
+        await sync.changeObject("recipe", obj.id, (d) => putRecipeTranslation(d, { from, to, original: recipe, translated: translatedRecipe(recipe, []) }));
+        return c.body(null, 204);
+      }
+      await enqueueTranslate(obj.id, { from, to, texts, recipe });
       return c.body(null, 202);
     });
 

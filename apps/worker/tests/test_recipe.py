@@ -381,7 +381,7 @@ ENV = {"NOTERAT_URL": "http://noterat:3000", "WORKER_TOKEN": "x" * 40}
 
 
 def test_recipe_is_a_kind_and_one_of_the_default_ones():
-    assert from_env(ENV).kinds == ("transcribe", "ocr", "recipe")
+    assert from_env(ENV).kinds == ("transcribe", "ocr", "recipe", "translate")
     assert from_env({**ENV, "WORKER_KINDS": "recipe"}).kinds == ("recipe",)
     assert from_env({**ENV, "WORKER_KINDS": "ocr, recipe"}).kinds == ("ocr", "recipe")
 
@@ -410,6 +410,7 @@ def test_without_recipe_scrapers_a_worker_goes_on_with_the_rest(monkeypatch: pyt
 
     monkeypatch.setattr(cli, "load", lambda config, shutdown: FakeModel())
     monkeypatch.setattr(cli, "load_ocr", lambda: FakeScanner())
+    monkeypatch.setattr(cli, "load_translator", lambda config: None)
     worker = cli.make_worker(from_env(ENV), cli.Shutdown())
     assert worker is not None and worker.kinds == ("transcribe", "ocr")
     assert worker.reader is None

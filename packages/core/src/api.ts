@@ -74,6 +74,7 @@ export type ErrorCode =
   | "not_uploaded"
   | "wrong_type"
   | "no_transcriber"
+  | "no_translator"
   // recipes (phase 5)
   | "fetch_failed"
   | "blocked"
@@ -192,8 +193,8 @@ export interface TranscriberInfo {
   queued: number;
 }
 
-/** What a worker does: speech to text (decision 6), reading scans (decision 8). */
-export type JobKind = "transcribe" | "ocr" | "recipe";
+/** What a worker does: speech to text (decision 6), reading scans (decision 8), reading and translating recipes (decision 9). */
+export type JobKind = "transcribe" | "ocr" | "recipe" | "translate";
 
 export interface WorkerFile {
   hash: string;
@@ -227,6 +228,15 @@ export type WorkerJob =
       files: WorkerFile[];
       /** the page's address, for knowing the site */
       url: string;
+    }
+  | {
+      id: string;
+      kind: "translate";
+      /** "en" and "sv" */
+      from: string;
+      to: string;
+      /** the pieces of text to translate (recipeTranslate.ts says which), each to be sent back translated, in order */
+      texts: string[];
     };
 
 /** POST /api/worker/jobs/:id/done, for a transcription (an OCR job's adds pages and pdf: decision 8) */

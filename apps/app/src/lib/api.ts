@@ -103,6 +103,7 @@ export function signedInApi(base: string, token: string) {
     refreshCalendar: (id: string) => at<{ events: number }>(`/api/objects/${id}/refresh`, { method: "POST" }),
     calendarFeed: (fresh = false) => at<{ url: string }>("/api/calendar-feed", { method: fresh ? "POST" : "GET" }),
     importRecipe: (id: string) => at<{ from: "page" | "worker" }>(`/api/objects/${id}/import`, { method: "POST" }),
+    translateRecipe: (id: string, body: { from: string; to: string }) => at<void>(`/api/objects/${id}/translate`, { method: "POST", body }),
     pushConfig: () => at<PushConfig>("/api/push/config"),
     registerPush: (token: string, lang: string) => at<void>("/api/push/devices", { method: "POST", body: { token, platform: "android", lang } }),
     pushPrefs: () => at<PushPrefs>("/api/push/prefs"),

@@ -1,6 +1,6 @@
 # noterat-worker
 
-Noterat's worker does three kinds of job:
+Noterat's worker does four kinds of job:
 
 - **Speech to text** for voice memos, with [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
   and [KB-Whisper](https://huggingface.co/KBLab/kb-whisper-large), the National Library of Sweden's
@@ -13,6 +13,9 @@ Noterat's worker does three kinds of job:
 - **Reading recipes** out of web pages, with
   [recipe-scrapers](https://github.com/hhursev/recipe-scrapers), for a page the server fetched but
   couldn't find a recipe in by itself. It takes a fraction of a second on the CPU.
+- **Translating recipes** from English into Swedish, with
+  [opus-mt-en-sv](https://huggingface.co/Helsinki-NLP/opus-mt-en-sv) (Helsinki-NLP, Apache 2.0)
+  through CTranslate2. The model is 75 MB and runs on the CPU: a recipe takes a fraction of a second.
 
 It's a small Python program that runs in its own container. It never sees Noterat's database. It
 asks Noterat for work over HTTP (`POST /api/worker/next`, a long poll), fetches the job's files, does
@@ -114,13 +117,30 @@ How it reads a recipe (a `recipe` job: `{ id, kind: "recipe", files: [{ hash, ty
 - **The log.** One line per job: id, title, seconds, what read it (the site's scraper or
   `schema.org`), the encoding, and how many ingredients and steps.
 
+How it translates (decision 9):
+
+- **What it's sent.** The server picks the pieces out (core's `recipeTranslate.ts`): the parts of
+  ingredient lines its glossary hasn't got, and the method and description sentence by sentence. A
+  job is `{ kind: "translate", from: "en", to: "sv", texts: [...] }`; there are no files.
+- **The model.** [DigitalTolk's CTranslate2 conversion](https://huggingface.co/DigitalTolk/opus-mt-en-sv-ctranslate2-int)
+  of opus-mt-en-sv (int8), at a pinned revision, downloaded into `MODELS_DIR` the first time (75 MB).
+  Its words are split with SentencePiece; it translates with a beam of 5.
+- **What's sent back.** `done` with `{ texts }`: each piece translated, in the same order. The
+  server puts them in their places, mends what the model gets wrong and keeps the English where a
+  translation looks made up.
+- **Failures.** Languages it doesn't translate, or a job without text: `failed` with `retry: false`.
+  The model breaking, or losing a piece: `retry: true`.
+- **At start.** It downloads the model if it has to and translates a sentence. Without it (no
+  internet the first time, or the `translate` extra isn't installed), it says so and goes on with the
+  other kinds.
+
 ## Settings
 
 | Variable | Default | |
 |---|---|---|
 | `NOTERAT_URL` | (required) | Noterat as the worker reaches it, e.g. `http://192.168.1.10:3300`, or `http://noterat:3000` in compose |
 | `WORKER_TOKEN` | (required) | The same long random string as `WORKER_TOKEN` on Noterat (`openssl rand -hex 32`) |
-| `WORKER_KINDS` | `transcribe,ocr,recipe` | The kinds of job it asks for: one or more of `transcribe`, `ocr` and `recipe`. Without `transcribe` it needs no GPU and doesn't load Whisper |
+| `WORKER_KINDS` | `transcribe,ocr,recipe,translate` | The kinds of job it asks for: one or more of `transcribe`, `ocr`, `recipe` and `translate`. Without `transcribe` it needs no GPU and doesn't load Whisper |
 | `MODEL` | `KBLab/kb-whisper-large` | A Hugging Face id of a Whisper in CTranslate2's format, or a folder with a `model.bin`. KB-Whisper also comes as `-medium`, `-small`, `-base` and `-tiny` |
 | `DEVICE` | `auto` | `cuda`, `cpu`, or `auto` (the GPU if CTranslate2 sees one) |
 | `COMPUTE_TYPE` | `float16` on a GPU, `int8` on a CPU | Anything [CTranslate2 takes](https://opennmt.net/CTranslate2/quantization.html), e.g. `int8_float16` for less GPU memory |
@@ -130,7 +150,8 @@ How it reads a recipe (a `recipe` job: `{ id, kind: "recipe", files: [{ hash, ty
 | `PUID` / `PGID` / `UMASK` | `99` / `100` / `002` | Who owns what it writes in `/models` (in the image) |
 
 `kb-whisper-large` takes about 3 GB on disk and about 4 GB of GPU memory in float16. Reading a scan
-takes no GPU, and no setting: the languages come with each job (`swe+eng`). Nor does reading a recipe.
+takes no GPU, and no setting: the languages come with each job (`swe+eng`). Nor does reading a recipe,
+or translating one (about 75 MB on disk and 200 MB of memory).
 
 ## Running it
 
@@ -188,7 +209,8 @@ For scans it has Debian's Tesseract 5.5 with `tesseract-ocr-swe` and `tesseract-
 plain PDF itself, so neither Ghostscript nor unpaper is needed.
 
 For recipes it has the `recipe` extra: recipe-scrapers 15.13.0, with BeautifulSoup and extruct (lxml
-was there already, for OCRmyPDF).
+was there already, for OCRmyPDF). For translating, the `translate` extra: SentencePiece (huggingface_hub
+came with faster-whisper); the model itself is downloaded at the first start, not kept in the image.
 
 `docker images` says 3.2 GB (1.06 GB to download), most of it cuBLAS. Without the recipe parts it was
 3.17 GB (1.05 GB to download): recipe-scrapers and what it brings take about 20 MB. Without the OCR
@@ -329,6 +351,19 @@ its picture and its description, read by recipe-scrapers' scraper for `arla.se` 
 ingredients from the page's table rather than its JSON-LD). Noterat's server reads this page's
 JSON-LD itself, so it wouldn't reach the worker; it shows how the worker reads a real page.
 
+### Translating
+
+`--translate` translates pieces of English as a translate job would, without a server, and prints
+them with the time it took. It's the model alone: the server's glossary and mending aren't in it.
+
+```sh
+docker run --rm -v noterat-models:/models ghcr.io/svennefenne/noterat-worker:latest \
+  python -m noterat_worker --translate "Soak the bread in the milk until soft, then squeeze it out."
+```
+
+That sentence comes back as "Blötlägg brödet i mjölken tills det är mjukt och pressa sedan ut det."
+A whole recipe (a cowboy soup: 12 ingredients, 6 steps) took 0.2 s on a desktop CPU.
+
 ## Tests
 
 ```sh
@@ -374,6 +409,11 @@ For recipes (`tests/test_recipe.py`):
   reads recipes loading neither Whisper nor OCR, and one without recipe-scrapers going on without it
 
 The tests that read with recipe-scrapers skip themselves when it isn't installed.
+
+For translating (`tests/test_translate.py`, with a fake translator): a job going through next →
+done with each piece translated in order, languages it doesn't do and a job without text
+(`retry: false`), a model that breaks or loses a piece (`retry: true`), `WORKER_KINDS`, and a
+worker without SentencePiece going on without translating.
 
 `tests/test_engines.py` tries the real page finder and Tesseract on synthetic images: a page warped
 onto a dark table found to within 1 %, no page found where there's no clear one, EXIF orientation,
