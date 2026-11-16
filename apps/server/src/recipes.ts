@@ -107,7 +107,9 @@ export function recipeImport(o: { db: DB; sync: Sync; store: FileStore; fetchPag
         } catch (err) {
           const why = err instanceof FetchFailed && (err.reason === "not_public" || err.reason === "blocked") ? err.reason : undefined;
           await state({ status: "failed", error: err instanceof Error ? err.message : "the page couldn't be fetched", reason: why, at: Date.now() });
-          throw new Fail(why ?? "fetch_failed", why === "not_public" ? 400 : 502);
+          // (a 4xx, not 502: Cloudflare in front of the server answers an origin's 502 with a page of its own, which
+          //  has no CORS headers, so the apps would take it for being offline)
+          throw new Fail(why ?? "fetch_failed", why === "not_public" ? 400 : 422);
         }
         const html = decodePage(page);
         const found = readSchemaRecipe(html, page.url);

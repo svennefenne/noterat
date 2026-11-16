@@ -53,7 +53,7 @@ describe("calendars", () => {
     const other = device(base, ada.token)(objectDocName("calendar", bad));
     initCalendar(other.doc, { title: "Trasig", source: "https://skolan.example.se/finns-inte.ics", by: ada.user.id });
     await synced(other.provider);
-    expect((await call(base, "POST", `/api/objects/${bad}/refresh`, ada.token)).status).toBe(502);
+    expect((await call(base, "POST", `/api/objects/${bad}/refresh`, ada.token)).status).toBe(422);
     await until(() => readCalendar(other.doc).error !== "", "the error on the device");
   });
 
