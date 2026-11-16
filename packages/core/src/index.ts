@@ -25,6 +25,7 @@ export * from "./notes";
 export * from "./receipts";
 export * from "./recipes";
 export * from "./recipeText";
+export * from "./recipeTranslate";
 export * from "./scans";
 export * from "./schemaorg";
 export * from "./search";

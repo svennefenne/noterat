@@ -1,9 +1,10 @@
 """The loop: ask Noterat for a job, fetch its files, do it, send the result back. Forever, through a
 server that restarts, a network that drops and a token that's wrong, without crashing.
 
-Three kinds of job: transcribe (a recording to text), ocr (a scan's pages to text and a searchable
-PDF, the pages found in photos and straightened first where the job asks for it) and recipe (a web
-page the server fetched, read for its recipe)."""
+Four kinds of job: transcribe (a recording to text), ocr (a scan's pages to text and a searchable
+PDF, the pages found in photos and straightened first where the job asks for it), recipe (a web
+page the server fetched, read for its recipe) and translate (a recipe's text, in pieces, into another
+language)."""
 
 from __future__ import annotations
 
@@ -20,6 +21,7 @@ from .client import ApiError, Client, JobGone, NotFound, Unauthorized, Unreachab
 from .model import Model, Segment, UndecodableAudio, join_text
 from .recipe import NoRecipe, RecipeReader, UndecodablePage, clip, decode_page
 from .scan import Cancelled, OcrFailed, Page, Scanner, UndecodableImage, UnknownLanguage, join_pages, language_of, page_text
+from .translate import Translator, UnknownPair
 
 log = logging.getLogger("noterat_worker")
 
@@ -79,6 +81,7 @@ class Worker:
         model_name: str | None,
         scanner: Scanner | None = None,
         reader: RecipeReader | None = None,
+        translator: Translator | None = None,
         kinds: tuple[str, ...] | None = None,
         server: str = "",
         shutdown: Shutdown | None = None,
@@ -94,10 +97,11 @@ class Worker:
         self.model = model
         self.scanner = scanner
         self.reader = reader
+        self.translator = translator
         # the kinds of job it asks for: those it has what it takes for, unless told otherwise
-        self.kinds = kinds or tuple(kind for kind, engine in (("transcribe", model), ("ocr", scanner), ("recipe", reader)) if engine is not None)
+        self.kinds = kinds or tuple(kind for kind, engine in (("transcribe", model), ("ocr", scanner), ("recipe", reader), ("translate", translator)) if engine is not None)
         if not self.kinds:
-            raise ValueError("a worker needs a model, a scanner or a recipe reader")
+            raise ValueError("a worker needs a model, a scanner, a recipe reader or a translator")
         self.worker_name = worker_name
         self.model_name = model_name
         self.server = server or client.base
@@ -168,7 +172,7 @@ class Worker:
             self.handle(job)
         except Exception as e:  # a job shaped in a way nobody expected mustn't take the worker down
             log.exception("job %s: unexpected error", job.get("id"))
-            who = "the worker" if job.get("kind") in ("ocr", "recipe") else "the transcriber"
+            who = "the worker" if job.get("kind") in ("ocr", "recipe", "translate") else "the transcriber"
             self._failed(str(job["id"]), f"{who} ran into an error ({type(e).__name__}: {e})", retry=True)
 
     # ── a job ──
@@ -185,6 +189,8 @@ class Worker:
             self.read_scan(job)
         elif kind == "recipe":
             self.read_recipe(job)
+        elif kind == "translate":
+            self.translate(job)
         else:
             self.transcribe(job)
 
@@ -460,6 +466,37 @@ class Worker:
                 len(recipe.ingredients),
                 len(recipe.steps),
             )
+
+    # ── translating ──
+
+    def translate(self, job: dict[str, Any]) -> None:
+        """A translate job: the pieces of a recipe's text the server sent, translated and sent back in
+        the same order (the server puts them in their places). Quick: no progress to report."""
+        job_id = str(job["id"])
+        started = self.clock()
+        if self.shutdown.is_set():
+            self._failed(job_id, "the worker was stopped before it started", retry=True)
+            return
+        texts = job.get("texts")
+        source, target = job.get("from"), job.get("to")
+        if not isinstance(texts, list) or not all(isinstance(t, str) for t in texts) or not isinstance(source, str) or not isinstance(target, str):
+            self._failed(job_id, "the job has no text to translate, or doesn't say from what into what", retry=False)
+            return
+        assert self.translator is not None
+        try:
+            out = self.translator.translate(texts, source, target)
+        except UnknownPair as e:
+            self._failed(job_id, str(e), retry=False)
+            return
+        except Exception as e:  # the model broke on something
+            log.exception("job %s: translating failed", job_id)
+            self._failed(job_id, f"the worker couldn't translate ({type(e).__name__}: {clip(str(e), 200)})", retry=True)
+            return
+        if len(out) != len(texts):
+            self._failed(job_id, f"the model gave {len(out)} translations of {len(texts)} pieces", retry=True)
+            return
+        if self._report(job_id, "done", lambda: self.client.done(job_id, {"texts": out})):
+            log.info("job %s: %d pieces translated (%s to %s, %d characters) in %.1f s", job_id, len(texts), source, target, sum(map(len, texts)), self.clock() - started)
 
     def _upload(self, job_id: str, path: str, content_type: str) -> dict[str, Any]:
         """A couple of quick tries, as for a download."""

@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { Camera, Check, ClipboardPaste, Clock, ExternalLink, Eye, ImagePlus, Minus, MoreVertical, PenLine, Plus, Share2, ShoppingCart, X } from "lucide-react";
+import { Camera, Check, ClipboardPaste, Clock, ExternalLink, Eye, ImagePlus, Languages, Minus, MoreVertical, PenLine, Plus, Share2, ShoppingCart, X } from "lucide-react";
 import { Link } from "wouter";
 import type * as Y from "yjs";
 import {
   addRecipePhoto,
   addTextRows,
   canAddRows,
+  canTranslate,
   doneChoosing,
   foreignMeasures,
   ingredientLines,
@@ -15,13 +16,16 @@ import {
   readRecipe,
   readRecipeText,
   recipeIngredients,
+  recipeLanguage,
   recipeSteps,
   recipeTitle,
   removeRecipePhoto,
   scaleLine,
   setRecipeMeta,
   setRecipeTags,
+  showRecipeVersion,
   toMetric,
+  translationFits,
   writeMinutes,
   type MemberRole,
   type RecipeView,
@@ -96,6 +100,24 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
       if (err instanceof ApiError && err.code === "not_synced") return void setTimeout(() => setRetry((n) => n + 1), 2000);
       // (why the page couldn't be read, the recipe says itself)
       if (err instanceof ApiError && ["blocked", "fetch_failed", "not_public", "no_recipe"].includes(err.code)) return;
+      setProblem(err instanceof ApiError && err.code === "network" ? t("list.needsOnline") : errorText(err));
+    }
+  }
+
+  // translating (decision 9): a recipe in another language than the app's, into the app's; the
+  // translation takes the place of its words for everyone, which are kept to go back to
+  const written = useMemo(() => recipeLanguage(`${ingredients}\n${steps}`), [ingredients, steps]);
+  const tr = recipe.translation;
+  const translating = tr?.job?.status === "queued" || tr?.job?.status === "working";
+  const translation = readOnly || mode !== "read" ? null : tr?.shown === "translated" ? "original" : written && written !== lang && canTranslate(written, lang) ? "translate" : null;
+  async function translate() {
+    setProblem("");
+    if (translation === "original") return void showRecipeVersion(doc, "original");
+    // (translated before, and the words it came with as they were: no need to ask the worker again)
+    if (tr?.to === lang && translationFits(doc)) return void showRecipeVersion(doc, "translated");
+    try {
+      await api.translateRecipe(id, { from: written!, to: lang });
+    } catch (err) {
       setProblem(err instanceof ApiError && err.code === "network" ? t("list.needsOnline") : errorText(err));
     }
   }
@@ -268,25 +290,39 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
         </div>
       )}
 
+      <div className="recipe-servings-row">
+        <span className="recipe-servings-label" id={`servings-${id}`}>
+          {t("recipe.servings")}
+        </span>
+        {mode === "read" && !base ? (
+          <span className="muted">{t("recipe.noServings")}</span>
+        ) : (
+          <span className="servings" role="group" aria-labelledby={`servings-${id}`}>
+            <button type="button" className="icon-button" onClick={() => setServings(Math.max(1, (want ?? 4) - 1))} aria-label={t("recipe.fewer")}>
+              <Minus aria-hidden size={16} />
+            </button>
+            {mode === "write" && !readOnly ? (
+              <input type="number" min={1} value={base ?? ""} onChange={(e) => setRecipeMeta(doc, { servings: Number(e.target.value) || null })} aria-label={t("recipe.servings")} />
+            ) : (
+              <ServingsField value={want!} onChange={setServings} />
+            )}
+            <button type="button" className="icon-button" onClick={() => setServings((want ?? 4) + 1)} aria-label={t("recipe.more")}>
+              <Plus aria-hidden size={16} />
+            </button>
+          </span>
+        )}
+        {translation && (
+          <button type="button" className="secondary small recipe-translate" onClick={() => void translate()} disabled={translating}>
+            <Languages aria-hidden size={16} /> {translating ? t("recipe.translating") : t(translation === "original" ? "recipe.showOriginal" : "recipe.translate")}
+          </button>
+        )}
+      </div>
+      {translation === "original" && <p className="muted small-text recipe-note">{t("recipe.translatedFrom", { lang: t(`recipe.lang.${tr!.from}`) })}</p>}
+      {translation === "translate" && tr?.job?.status === "failed" && <Problem>{t("recipe.translateFailed", { error: tr.job.error ?? "" })}</Problem>}
       <div className="recipe-body">
         <section className="recipe-ingredients" aria-label={t("recipe.ingredients")}>
           <div className="entry-section-head">
             <h2>{t("recipe.ingredients")}</h2>
-            <span className="servings" role="group" aria-label={t("recipe.servings")}>
-              <button type="button" className="icon-button" onClick={() => setServings(Math.max(1, (want ?? 4) - 1))} aria-label={t("recipe.fewer")} disabled={!base && mode === "read"}>
-                <Minus aria-hidden size={16} />
-              </button>
-              {mode === "write" && !readOnly ? (
-                <input type="number" min={1} value={base ?? ""} onChange={(e) => setRecipeMeta(doc, { servings: Number(e.target.value) || null })} aria-label={t("recipe.servings")} />
-              ) : base && want ? (
-                <ServingsField value={want} onChange={setServings} />
-              ) : (
-                <span>{t("recipe.noServings")}</span>
-              )}
-              <button type="button" className="icon-button" onClick={() => setServings((want ?? 4) + 1)} aria-label={t("recipe.more")} disabled={!base && mode === "read"}>
-                <Plus aria-hidden size={16} />
-              </button>
-            </span>
           </div>
           {foreign.length > 0 && (mode === "read" || readOnly) && (
             <p className="recipe-measures small-text">
@@ -461,7 +497,6 @@ function ServingsField({ value, onChange }: { value: number; onChange: (n: numbe
         onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
         aria-label={t("recipe.servings")}
       />
-      <span>{t("recipe.servingsWord")}</span>
     </label>
   );
 }

@@ -47,6 +47,21 @@ servings, put on the shopping list, shared live, and exported as a PDF.
   rounded as a cook would (a cup is 2,4 dl), and keeps a metric measure the recipe gives beside the other.
   It's only shown, in the ingredients, the method, the PDF and the shopping list; the recipe keeps its own
   words. The app offers it on a recipe that uses such measures, and remembers the choice on the device.
+- **Translating a recipe** (English into Swedish, for now) is the worker's, with a model that runs on
+  its CPU (opus-mt-en-sv through CTranslate2, 75 MB), not a service elsewhere. Alone, the model gets an
+  ingredient's name wrong often enough ("heavy cream" as "tung grädde", a word it doesn't know as
+  something from the EU's texts it learnt from), so the server gives it less to do: core's
+  `recipeTranslate.ts` converts the measures to metric first, keeps an ingredient line's amount and unit
+  out of it ("2 cloves" is "2 klyftor"), takes the name from a glossary of common ingredients and the
+  notes ("minced", "rinsed and drained") from a list of their own, in the singular or the plural, and
+  sends the model only what's left and the method, sentence by sentence, with a few English words it
+  gets wrong put in ones it gets right. Its habits are mended after, and a translation that looks made
+  up is let go of for the English. The title stays as it was: a dish's name is where it goes most wrong.
+  The translation takes the place of the recipe's words, for everyone (the shopping list and the PDF
+  are in Swedish then), and the words it came with are kept (`translation` in the document): "Visa
+  original" goes back to them and "Översätt" forth again, without the worker, as long as they haven't
+  changed; what someone mended in either is kept. The app offers it on a recipe whose little words are
+  English, in a row with the servings above the ingredients.
 - **To the shopping list**: the scaled lines, as rows in a list picked (core's `addTextRows`).
 - **The PDF is made on the device** (pdf-lib), offline too, and saved or shared: a download on the web,
   the phone's share sheet in the app (`@capacitor/filesystem` and `@capacitor/share`), which also gives a
@@ -62,3 +77,6 @@ servings, put on the shopping list, shared live, and exported as a PDF.
 - A guessed import fetches up to 12 pictures, and the ones not chosen stay on the server as the recipe's
   files.
 - The server makes outgoing requests for the first time; the address check keeps them to the internet.
+- A translation is a machine's: the ingredients mostly read as a Swedish recipe's, the method is
+  understandable but can be stiff ("koka tills mjuknat"), and someone may want to mend it. Another
+  language needs another model in the worker and words in the glossary.

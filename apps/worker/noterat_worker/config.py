@@ -7,9 +7,9 @@ import socket
 from dataclasses import dataclass
 
 DEFAULT_MODEL = "KBLab/kb-whisper-large"
-# What the worker can be asked to do: transcribe (speech to text), ocr (read a scan) and recipe (read
-# a recipe out of a web page the server fetched).
-KINDS = ("transcribe", "ocr", "recipe")
+# What the worker can be asked to do: transcribe (speech to text), ocr (read a scan), recipe (read a
+# recipe out of a web page the server fetched) and translate (a recipe's text).
+KINDS = ("transcribe", "ocr", "recipe", "translate")
 
 
 class ConfigError(Exception):
@@ -53,7 +53,7 @@ def from_env(env: dict[str, str] | None = None, *, need_server: bool = True) -> 
     kinds = tuple(dict.fromkeys(k.strip().lower() for k in get("WORKER_KINDS", ",".join(KINDS)).replace(" ", ",").split(",") if k.strip()))
     unknown = [k for k in kinds if k not in KINDS]
     if unknown or not kinds:
-        raise ConfigError(f"WORKER_KINDS should be one or more of transcribe, ocr and recipe, comma-separated (it is {get('WORKER_KINDS')!r})")
+        raise ConfigError(f"WORKER_KINDS should be one or more of transcribe, ocr, recipe and translate, comma-separated (it is {get('WORKER_KINDS')!r})")
 
     return Config(
         noterat_url=url,
