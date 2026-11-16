@@ -107,7 +107,10 @@ describe("importing a recipe", () => {
 
   it("says so when a site keeps the server out, for the app to offer pasting the recipe instead", async () => {
     const { base, ada, id, r } = await recipeFrom("https://murad.example.com/recipe/1/meatballs");
-    expect((await call<{ error: string }>(base, "POST", `/api/objects/${id}/import`, ada.token)).json.error).toBe("blocked");
+    const res = await call<{ error: string }>(base, "POST", `/api/objects/${id}/import`, ada.token);
+    expect(res.json.error).toBe("blocked");
+    // (not a 5xx: Cloudflare in front of the server would put its own page, with no CORS headers, in place of a 502)
+    expect(res.status).toBe(422);
     await until(() => readRecipe(r.doc).import?.status === "failed", "the import to say it failed");
     expect(readRecipe(r.doc).import).toMatchObject({ error: "the page answered 403", reason: "blocked" });
   });

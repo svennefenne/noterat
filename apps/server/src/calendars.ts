@@ -66,7 +66,8 @@ export function calendarRoutes(app: Hono<Env>, o: { db: DB; sync: Sync; publicUr
     if (!roleOf(db, obj.id, c.get("user").id)) throw new Fail("forbidden", 403);
     if (obj.type !== "calendar") throw new Fail("wrong_type", 400);
     const r = await refresh(obj.id);
-    if (!r.ok) throw new Fail("fetch_failed", 502);
+    // (422, not 502, as with a recipe's page: a proxy such as Cloudflare puts its own page in place of a 502)
+    if (!r.ok) throw new Fail("fetch_failed", 422);
     return c.json({ events: r.events });
   });
 
