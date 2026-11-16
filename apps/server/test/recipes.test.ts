@@ -32,6 +32,7 @@ const pages: Record<string, Fetched> = {
 };
 const fakeFetch = async (url: string) => {
   if (url.startsWith("http://192.168.")) throw new FetchFailed("that address isn't on the internet", "not_public");
+  if (url.startsWith("https://murad.example.com/")) throw new FetchFailed("the page answered 403", "blocked");
   const p = pages[url];
   if (!p) throw new FetchFailed("the page answered 404");
   return p;
@@ -96,12 +97,28 @@ describe("importing a recipe", () => {
     const { base, ada, id, r } = await recipeFrom("https://blogg.example.se/bullar");
     expect((await call<{ error: string }>(base, "POST", `/api/objects/${id}/import`, ada.token)).json.error).toBe("no_recipe");
     await until(() => readRecipe(r.doc).import?.status === "failed", "the import to say it failed");
-    expect(readRecipe(r.doc).import?.error).toBe("no recipe was found on the page");
+    expect(readRecipe(r.doc).import).toMatchObject({ error: "no recipe was found on the page", reason: "no_recipe" });
 
     const missing = await recipeFrom("https://recept.example.se/finns-inte");
     expect((await call<{ error: string }>(missing.base, "POST", `/api/objects/${missing.id}/import`, missing.ada.token)).json.error).toBe("fetch_failed");
     const home = await recipeFrom("http://192.168.1.10/recept");
     expect((await call<{ error: string }>(home.base, "POST", `/api/objects/${home.id}/import`, home.ada.token)).json.error).toBe("not_public");
+  });
+
+  it("says so when a site keeps the server out, for the app to offer pasting the recipe instead", async () => {
+    const { base, ada, id, r } = await recipeFrom("https://murad.example.com/recipe/1/meatballs");
+    expect((await call<{ error: string }>(base, "POST", `/api/objects/${id}/import`, ada.token)).json.error).toBe("blocked");
+    await until(() => readRecipe(r.doc).import?.status === "failed", "the import to say it failed");
+    expect(readRecipe(r.doc).import).toMatchObject({ error: "the page answered 403", reason: "blocked" });
+  });
+
+  it("says the page has no recipe when the worker gives up on it for good", async () => {
+    const { base, ada, id, r } = await recipeFrom("https://blogg.example.se/bullar", { workerToken: WORKER });
+    await call(base, "POST", `/api/objects/${id}/import`, ada.token);
+    const job = ((await (await worker(base, "/next", { worker: "w", kinds: ["recipe"] })).json()) as { job: { id: string } }).job;
+    await worker(base, `/jobs/${job.id}/failed`, { error: "no recipe was found on the page", retry: false });
+    await until(() => readRecipe(r.doc).import?.status === "failed", "the import to say it failed");
+    expect(readRecipe(r.doc).import?.reason).toBe("no_recipe");
   });
 });
 

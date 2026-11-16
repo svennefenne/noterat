@@ -330,7 +330,9 @@ export function createJobs(o: JobOptions) {
       const again = body.retry !== false && job.tries < maxTries;
       const t = Date.now();
       db.prepare("update jobs set status = ?, error = ?, updated_at = ? where id = ?").run(again ? "queued" : "failed", error, t, job.id);
-      await stateOf(job, again ? { status: "queued", at: t } : { status: "failed", error, at: t });
+      // (a recipe the worker gave up on for good: the page was read, and there's no recipe in it to be had)
+      const reason = job.kind === "recipe" && body.retry === false ? "no_recipe" : undefined;
+      await stateOf(job, again ? { status: "queued", at: t } : { status: "failed", error, reason, at: t });
       if (again) wake();
       return c.body(null, 204);
     });

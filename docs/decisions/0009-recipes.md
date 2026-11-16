@@ -28,6 +28,18 @@ servings, put on the shopping list, shared live, and exported as a PDF.
   post); the server fetches them the same careful way, keeps them as the recipe's files, puts the likeliest
   among its photos and the rest in `photoChoices`, and the app offers them as thumbnails to choose from.
   When the choosing's done, the choices and the guess go (the files stay, as any removed photo's do).
+- **A site that keeps programs out** (one behind Cloudflare's wall against bots answers 403 with
+  `cf-mitigated: challenge`; others 401 or 429) isn't worked around: the server doesn't pretend to be a
+  browser. The import says why it failed (`reason`: blocked, not_public or no_recipe, the last also when
+  the worker gives up on a page for good), and the app says it plainly and offers **pasting the recipe**
+  instead: copied on the page, in the person's own browser, a selection or the whole page. Core's
+  `recipeText.ts` reads it on the device, the way the worker reads a page by its headings: the part
+  under an ingredients heading that looks most like a list of them (not a blog's "what you'll need" in
+  prose, nor a carousel of other recipes), the steps under a method heading, and the title (the line the
+  link names, else the one that talks about what's in the recipe), servings and time. Scale buttons,
+  ratings, ads, a photo credit after each step, notes, questions and reviews are left out, and a note on
+  a line of its own ("2 carrots" / "finely chopped") is joined to its ingredient. What's pasted takes the
+  place of the ingredients and steps, and the import is done with.
 - **Scaling happens on the device**: core's `ingredients.ts` reads a line's amount ("1 1/2 dl", "½ tsk",
   "2–3", "1,5 kg") and writes it scaled, in Swedish ("3 dl", "¾ tsk"); a line without an amount stays.
 - **American measures are converted on the device, when asked**: core's `units.ts` turns cups, ounces,
@@ -44,7 +56,9 @@ servings, put on the shopping list, shared live, and exported as a PDF.
 
 - Recipes from most Swedish sites (they publish schema.org data) import at once; others wait for the
   worker, and without a worker they say so. A page the worker can only guess at imports too, marked as a
-  guess; a page with no list under an ingredients heading still has no recipe.
+  guess; a page with no list under an ingredients heading still has no recipe. A site that won't let
+  the server in, or a page it can't read, takes a copy and a paste; whether a site lets the server in
+  can differ from one machine to another, as Cloudflare judges each client for itself.
 - A guessed import fetches up to 12 pictures, and the ones not chosen stay on the server as the recipe's
   files.
 - The server makes outgoing requests for the first time; the address check keeps them to the internet.

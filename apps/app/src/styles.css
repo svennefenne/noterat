@@ -2393,7 +2393,8 @@ a.icon-button {
   gap: 8px;
 }
 
-.recipe-check {
+.recipe-check,
+.recipe-failed {
   display: grid;
   justify-items: start;
   gap: 10px;
@@ -2401,6 +2402,41 @@ a.icon-button {
   padding: 12px 14px 14px;
   background: var(--accent-soft);
   border-radius: var(--radius-small);
+}
+
+.recipe-failed {
+  margin: 12px 0 0;
+}
+
+.recipe-failed p {
+  margin: 0;
+}
+
+.recipe-failed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.paste-recipe {
+  width: 100%;
+  min-height: 12rem;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  color: inherit;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  resize: vertical;
+}
+
+.paste-recipe:focus-visible {
+  border-color: var(--accent);
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 2px;
 }
 
 .recipe-check p {

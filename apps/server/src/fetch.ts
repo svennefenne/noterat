@@ -21,7 +21,7 @@ export interface Fetched {
 export class FetchFailed extends Error {
   constructor(
     message: string,
-    readonly reason: "not_public" | "too_large" | "failed" = "failed",
+    readonly reason: "not_public" | "too_large" | "blocked" | "failed" = "failed",
   ) {
     super(message);
   }
@@ -103,7 +103,10 @@ export function fetchPublic(url: string, o: FetchOptions = {}, redirects = 5): P
         }
         if (status < 200 || status >= 300) {
           res.resume();
-          return reject(new FetchFailed(`the page answered ${status}`));
+          // (a site that keeps programs out: it won't let us in, it's had enough of us, or Cloudflare asks
+          // for a browser: no use pretending to be one)
+          const blocked = status === 401 || status === 403 || status === 429 || res.headers["cf-mitigated"] !== undefined;
+          return reject(new FetchFailed(`the page answered ${status}`, blocked ? "blocked" : "failed"));
         }
         if (Number(res.headers["content-length"] ?? 0) > maxBytes) {
           res.destroy();

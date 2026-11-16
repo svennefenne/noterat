@@ -24,6 +24,7 @@ export * from "./memos";
 export * from "./notes";
 export * from "./receipts";
 export * from "./recipes";
+export * from "./recipeText";
 export * from "./scans";
 export * from "./schemaorg";
 export * from "./search";
