@@ -30,8 +30,8 @@ const AWAY = 72;
 type Notice = { kind: "hint" | "problem"; text: string } | { kind: "saved"; id: string };
 
 /**
- * The phone's plus button (decision 17), low on the side the thumb reaches (right, or left as chosen
- * under Settings → Appearance). A tap opens what it makes; above it the microphone: held down, it
+ * The phone's plus button (decision 17), low where the thumb reaches it (right, left or in the middle, as
+ * chosen under Settings → Appearance). A tap opens what it makes; above it the microphone: held down, it
  * records a voice memo, kept (and written out as text) when let go, or let go of when the finger has
  * slid away from it.
  */

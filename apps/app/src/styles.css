@@ -1322,6 +1322,7 @@ select {
   place-items: center;
   width: 18px;
   height: 18px;
+  min-height: 0;
   margin-right: -4px;
   padding: 0;
   color: inherit;
@@ -1903,13 +1904,23 @@ a.icon-button {
   right: 6px;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
+  min-height: 0;
+  padding: 0;
   color: #fff;
   background: rgb(0 0 0 / 0.55);
   border: none;
   border-radius: 50%;
   cursor: pointer;
+}
+
+/* (a finger-sized target around the small circle) */
+.photo-remove::after {
+  position: absolute;
+  inset: -7px;
+  content: "";
+  border-radius: 50%;
 }
 
 .photo-large {
@@ -2675,6 +2686,7 @@ a.icon-button {
 .color-swatch {
   width: 22px;
   height: 22px;
+  min-height: 0;
   padding: 0;
   border: 2px solid var(--surface);
   border-radius: 50%;
@@ -4847,6 +4859,13 @@ p.to-budget a,
     align-items: flex-start;
   }
 
+  /* (the whole width, the stack in its middle: a transform would make the scrim's frame this box) */
+  .plus.center {
+    right: 0;
+    left: 0;
+    align-items: center;
+  }
+
   .plus > * {
     pointer-events: auto;
   }
@@ -5049,6 +5068,69 @@ p.to-budget a,
 
 .plus-item:focus-visible {
   outline: none;
+}
+
+/* in the middle: the choices one list of equal pills, icon first; what the button says above it */
+.plus.center .plus-items {
+  align-items: stretch;
+}
+
+.plus.center .plus-item {
+  width: 100%;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-inline: 0;
+  padding: 3px 20px 3px 3px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+}
+
+.plus.center .plus-label {
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+}
+
+.plus.center .plus-icon {
+  width: 38px;
+  height: 38px;
+  background: var(--accent-soft);
+  border: none;
+  box-shadow: none;
+}
+
+.plus.center .plus-item:hover {
+  background: var(--accent-soft);
+}
+
+.plus.center .plus-item:hover .plus-label {
+  background: none;
+}
+
+.plus.center .plus-item:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.plus.center .plus-item:focus-visible .plus-icon {
+  outline: none;
+}
+
+.plus.center .plus-row {
+  position: relative;
+}
+
+.plus.center .plus-bubble {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  translate: -50% 0;
 }
 
 /* what the button says: hold it, it's recording, it's saved */
