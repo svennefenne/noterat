@@ -31,6 +31,8 @@ export interface Transcription {
   language?: string;
   model?: string;
   error?: string;
+  /** why it failed, where the app can say it better than error does (a recipe's import: ImportFailure) */
+  reason?: string;
   at: number;
 }
 

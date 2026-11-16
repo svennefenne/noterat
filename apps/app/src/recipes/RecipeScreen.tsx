@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Camera, Check, Clock, ExternalLink, Eye, ImagePlus, Minus, MoreVertical, PenLine, Plus, Share2, ShoppingCart, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { Camera, Check, ClipboardPaste, Clock, ExternalLink, Eye, ImagePlus, Minus, MoreVertical, PenLine, Plus, Share2, ShoppingCart, X } from "lucide-react";
 import { Link } from "wouter";
 import type * as Y from "yjs";
 import {
@@ -10,8 +10,10 @@ import {
   foreignMeasures,
   ingredientLines,
   objectDocName,
+  putPastedRecipe,
   readList,
   readRecipe,
+  readRecipeText,
   recipeIngredients,
   recipeSteps,
   recipeTitle,
@@ -66,6 +68,7 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
   const [sharing, setSharing] = useState(false);
   const [shopping, setShopping] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [pasting, setPasting] = useState(false);
   const { away, problem, setProblem } = useAway("recipe", id);
   const awareness = sync.awareness(name);
   usePresence(awareness);
@@ -91,6 +94,8 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
     } catch (err) {
       // (made a moment ago: the server hasn't got it yet; asked again in a little while)
       if (err instanceof ApiError && err.code === "not_synced") return void setTimeout(() => setRetry((n) => n + 1), 2000);
+      // (why the page couldn't be read, the recipe says itself)
+      if (err instanceof ApiError && ["blocked", "fetch_failed", "not_public", "no_recipe"].includes(err.code)) return;
       setProblem(err instanceof ApiError && err.code === "network" ? t("list.needsOnline") : errorText(err));
     }
   }
@@ -140,6 +145,15 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
 
   if (!sync.isLoaded(name)) return <p className="muted">{t("lists.loading")}</p>;
   const im = recipe.import;
+  const host = recipe.source ? new URL(recipe.source).host : "";
+  const failed =
+    im?.reason === "blocked"
+      ? t("recipe.blocked", { host })
+      : im?.reason === "no_recipe"
+        ? t("recipe.noRecipe")
+        : im?.reason === "not_public"
+          ? t("error.not_public")
+          : `${t("recipe.importFailed")}${im?.error ? `: ${im.error}` : ""}`;
 
   return (
     <div className="screen recipe-screen">
@@ -168,6 +182,7 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
                 {t(isNative ? "recipe.pdfShare" : "recipe.pdf")}
               </MenuItem>
               {!readOnly && recipe.source && <MenuItem onSelect={() => void importNow()}>{t("recipe.importAgain")}</MenuItem>}
+              {!readOnly && <MenuItem onSelect={() => setPasting(true)}>{t("recipe.pasteMenu")}</MenuItem>}
               {role === "owner" ? (
                 <MenuItem danger onSelect={() => void away("delete", t("recipe.deleteConfirm"))}>
                   {t("recipe.delete")}
@@ -201,16 +216,23 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
           {mode === "write" && !readOnly && <TagsInput doc={doc} tags={recipe.tags} />}
           {mode === "read" && recipe.tags.map((x) => <span key={x} className="badge tag">#{x}</span>)}
         </div>
-        {im && im.status !== "done" && (
-          <p className={im.status === "failed" ? "problem" : "notice"}>
-            {im.status === "failed" ? `${t("recipe.importFailed")}${im.error ? `: ${im.error}` : ""}` : t(im.status === "queued" ? "recipe.importQueued" : "recipe.importing")}
-            {im.status === "failed" && !readOnly && (
-              <button type="button" className="link-button" onClick={() => void importNow()}>
-                {" "}
-                {t("recipe.tryAgain")}
-              </button>
+        {im && im.status !== "done" && im.status !== "failed" && <p className="notice">{t(im.status === "queued" ? "recipe.importQueued" : "recipe.importing")}</p>}
+        {im?.status === "failed" && (
+          <div className="recipe-failed" role="status">
+            <p>{failed}</p>
+            {!readOnly && (
+              <div className="recipe-failed-actions">
+                <button type="button" className="secondary small" onClick={() => setPasting(true)}>
+                  <ClipboardPaste aria-hidden size={16} /> {t("recipe.paste")}
+                </button>
+                {im.reason !== "not_public" && (
+                  <button type="button" className="link-button" onClick={() => void importNow()}>
+                    {t("recipe.tryAgain")}
+                  </button>
+                )}
+              </div>
             )}
-          </p>
+          </div>
         )}
         {problem && <Problem>{problem}</Problem>}
       </div>
@@ -315,6 +337,9 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
       <Dialog open={shopping} onClose={() => setShopping(false)} title={t("recipe.toList")}>
         <ToList lines={lines.filter((l) => !/:$/.test(l))} onDone={() => setShopping(false)} />
       </Dialog>
+      <Dialog open={pasting} onClose={() => setPasting(false)} title={t("recipe.paste")} wide>
+        {pasting && <PasteForm doc={doc} recipe={recipe} filled={Boolean(ingredients.trim() || steps.trim())} onDone={() => setPasting(false)} />}
+      </Dialog>
     </div>
   );
 }
@@ -354,6 +379,57 @@ function ToCheck({ doc, recipe }: { doc: Y.Doc; recipe: RecipeView }) {
         <Check aria-hidden size={16} /> {t("recipe.checked")}
       </button>
     </section>
+  );
+}
+
+/**
+ * A recipe copied from its page (or a whole page) and pasted: read on the device as it's pasted, what
+ * was found said before it's put in. For a site that won't let the server in, or a page it can't read.
+ */
+function PasteForm({ doc, recipe, filled, onDone }: { doc: Y.Doc; recipe: RecipeView; filled: boolean; onDone: () => void }) {
+  const { t, lang } = useI18n();
+  const [text, setText] = useState("");
+  const read = useMemo(() => (text.trim() ? readRecipeText(text, { source: recipe.source || undefined }) : null), [text, recipe.source]);
+  const count = (lines: string[]) => lines.filter((l) => !l.endsWith(":")).length;
+  const found = read
+    ? [
+        !recipe.title && read.title ? `”${read.title}”` : "",
+        count(read.ingredients) ? t(count(read.ingredients) === 1 ? "recipe.pasteIngredientsOne" : "recipe.pasteIngredients", { n: count(read.ingredients) }) : "",
+        count(read.steps) ? t(count(read.steps) === 1 ? "recipe.pasteStepsOne" : "recipe.pasteSteps", { n: count(read.steps) }) : "",
+        read.servings ? t("recipe.servingsN", { n: read.servings }) : "",
+        read.minutes ? writeMinutes(read.minutes, lang) : "",
+      ].filter(Boolean)
+    : [];
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!read) return;
+    putPastedRecipe(doc, read);
+    onDone();
+  }
+
+  return (
+    <form onSubmit={submit} className="stack">
+      <p className="muted small-text">{t("recipe.pasteHint")}</p>
+      <label className="field">
+        <span>{t("recipe.pasteLabel")}</span>
+        <textarea className="paste-recipe" rows={9} value={text} onChange={(e) => setText(e.target.value)} spellCheck={false} data-autofocus />
+      </label>
+      {text.trim() && (
+        <p className={read ? "small-text" : "muted small-text"} aria-live="polite">
+          {read ? t("recipe.pasteFound", { parts: new Intl.ListFormat(lang, { type: "conjunction" }).format(found) }) : t("recipe.pasteNothing")}
+        </p>
+      )}
+      {read && filled && <p className="muted small-text">{t("recipe.pasteReplaces")}</p>}
+      <div className="dialog-actions">
+        <button type="button" className="secondary" onClick={onDone}>
+          {t("editor.cancel")}
+        </button>
+        <button type="submit" className="primary" disabled={!read}>
+          {t("recipe.pasteGo")}
+        </button>
+      </div>
+    </form>
   );
 }
 

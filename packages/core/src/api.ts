@@ -76,6 +76,7 @@ export type ErrorCode =
   | "no_transcriber"
   // recipes (phase 5)
   | "fetch_failed"
+  | "blocked"
   | "not_public"
   | "no_recipe"
   // push (phase 8)

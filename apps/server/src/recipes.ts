@@ -105,9 +105,9 @@ export function recipeImport(o: { db: DB; sync: Sync; store: FileStore; fetchPag
         try {
           page = await fetchPage(source);
         } catch (err) {
-          const notPublic = err instanceof FetchFailed && err.reason === "not_public";
-          await state({ status: "failed", error: err instanceof Error ? err.message : "the page couldn't be fetched", at: Date.now() });
-          throw new Fail(notPublic ? "not_public" : "fetch_failed", notPublic ? 400 : 502);
+          const why = err instanceof FetchFailed && (err.reason === "not_public" || err.reason === "blocked") ? err.reason : undefined;
+          await state({ status: "failed", error: err instanceof Error ? err.message : "the page couldn't be fetched", reason: why, at: Date.now() });
+          throw new Fail(why ?? "fetch_failed", why === "not_public" ? 400 : 502);
         }
         const html = decodePage(page);
         const found = readSchemaRecipe(html, page.url);
@@ -121,7 +121,7 @@ export function recipeImport(o: { db: DB; sync: Sync; store: FileStore; fetchPag
           await jobs.enqueueRecipe(obj.id, file.hash, page.url);
           return c.json({ from: "worker" }, 202);
         }
-        await state({ status: "failed", error: "no recipe was found on the page", at: Date.now() });
+        await state({ status: "failed", error: "no recipe was found on the page", reason: "no_recipe", at: Date.now() });
         throw new Fail("no_recipe", 422);
       });
     },

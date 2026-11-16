@@ -2,6 +2,7 @@ import * as Y from "yjs";
 import { firstLine } from "./docs";
 import type { Photo } from "./journal";
 import type { Transcription, TranscriptionStatus } from "./memos";
+import { writeSteps, type PastedRecipe } from "./recipeText";
 
 /**
  * A recipe (decision 9). Its document:
@@ -61,6 +62,12 @@ const importMap = (doc: Y.Doc) => doc.getMap<unknown>("import");
 const choicesArray = (doc: Y.Doc) => doc.getArray<PhotoChoice>("photoChoices");
 
 const STATUSES: TranscriptionStatus[] = ["wanted", "queued", "working", "done", "failed"];
+/**
+ * Why an import failed, when the app can say it plainly: the site won't let the server in (a wall
+ * against programs), the link goes to the home network, or the page has no recipe to be read.
+ */
+export const IMPORT_FAILURES = ["blocked", "not_public", "no_recipe"] as const;
+export type ImportFailure = (typeof IMPORT_FAILURES)[number];
 const oneLine = (s: string, max: number) => s.replace(/\s+/g, " ").trim().slice(0, max);
 
 /** A link someone pasted, as an http(s) address, or null. */
@@ -108,7 +115,9 @@ export function readRecipe(doc: Y.Doc): RecipeView {
     photos: photosArray(doc)
       .toArray()
       .filter((p) => p && typeof p.hash === "string"),
-    import: STATUSES.includes(status) ? { status, error: str(im.get("error")) || undefined, at: Number(im.get("at")) || 0 } : null,
+    import: STATUSES.includes(status)
+      ? { status, error: str(im.get("error")) || undefined, reason: IMPORT_FAILURES.find((r) => r === im.get("reason")), at: Number(im.get("at")) || 0 }
+      : null,
     guessed: m.get("guessed") === true,
     photoChoices: choicesArray(doc)
       .toArray()
@@ -199,6 +208,27 @@ export function putImportedRecipe(doc: Y.Doc, r: ImportedRecipe, photo?: Omit<Ph
     if (r.guessed) m.set("guessed", true);
     else m.delete("guessed");
     setImportState(doc, { status: "done", at: Date.now() });
+  });
+}
+
+/**
+ * A recipe someone pasted (recipeText.ts) into the recipe: its ingredients and steps take the place of
+ * what's there (it's what was asked for), servings and time with them; the title only if there's none.
+ * An import that failed, or is still on its way, is done with: what was pasted is the recipe.
+ */
+export function putPastedRecipe(doc: Y.Doc, r: PastedRecipe) {
+  doc.transact(() => {
+    const m = meta(doc);
+    if (!readRecipe(doc).title && r.title) m.set("title", oneLine(r.title, RECIPE_TITLE_MAX));
+    if (r.servings) m.set("servings", Math.round(r.servings));
+    if (r.minutes) m.set("minutes", Math.round(r.minutes));
+    const replace = (t: Y.Text, s: string) => {
+      t.delete(0, t.length);
+      t.insert(0, s);
+    };
+    if (r.ingredients.length) replace(recipeIngredients(doc), r.ingredients.map((l) => oneLine(l, 500)).filter(Boolean).join("\n"));
+    if (r.steps.length) replace(recipeSteps(doc), writeSteps(r.steps));
+    if (importMap(doc).get("status") !== undefined) setImportState(doc, { status: "done", at: Date.now() });
   });
 }
 
