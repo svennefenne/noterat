@@ -38,7 +38,7 @@ export function SettingsScreen({ section }: { section?: string }) {
   const summary: Record<Key, string> = {
     look: [
       mine.scheme === null && mine.mode === null ? t("settings.followsHousehold") : `${schemeOf(look.scheme).name} · ${t(`look.mode.${look.mode}`)}`,
-      t(side === "left" ? "settings.plusLeft" : "settings.plusRight"),
+      t(`settings.plus.${side}`),
     ].join(" · "),
     lang: chosen ? LANGS[lang] : `${LANGS[household.locale.lang]} · ${t("settings.followsHousehold").toLowerCase()}`,
     notices: "",

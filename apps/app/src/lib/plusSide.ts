@@ -1,18 +1,20 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * Which side of the phone's screen the plus button sits on (this device's choice, under Settings →
- * Appearance): the right, or the left for a left hand. Kept on the device; every part of the app that
+ * Where on the phone's screen the plus button sits (this device's choice, under Settings → Appearance):
+ * the right, the left for a left hand, or the middle. Kept on the device; every part of the app that
  * shows it follows a change at once.
  */
-export type PlusSide = "right" | "left";
+export type PlusSide = "right" | "left" | "center";
+export const PLUS_SIDES: PlusSide[] = ["left", "center", "right"];
 
 const KEY = "noterat.plus.side";
 const listeners = new Set<() => void>();
 
 function read(): PlusSide {
   try {
-    return localStorage.getItem(KEY) === "left" ? "left" : "right";
+    const saved = localStorage.getItem(KEY);
+    return saved === "left" || saved === "center" ? saved : "right";
   } catch {
     return "right";
   }

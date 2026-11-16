@@ -3,7 +3,7 @@ import { Check, Dices, Monitor, Moon, Search, Sun } from "lucide-react";
 import { LOOK_MODES, SCHEME_CATEGORIES, SCHEMES, schemeOf, type LookMode, type Scheme, type SchemeCategory } from "@noterat/core";
 import { useHousehold } from "../lib/household";
 import { useI18n } from "../lib/i18n";
-import { usePlusSide } from "../lib/plusSide";
+import { PLUS_SIDES, usePlusSide } from "../lib/plusSide";
 import { Problem } from "../ui";
 import { AdminSection, Setting, useSaveHousehold } from "./AdminScreen";
 
@@ -163,12 +163,11 @@ export function MyLookForm() {
       <div className="field">
         <span className="field-label">{t("settings.plus")}</span>
         <div className="segmented labels" role="group" aria-label={t("settings.plus")}>
-          <button type="button" aria-pressed={side === "left"} onClick={() => setSide("left")}>
-            {t("settings.left")}
-          </button>
-          <button type="button" aria-pressed={side === "right"} onClick={() => setSide("right")}>
-            {t("settings.right")}
-          </button>
+          {PLUS_SIDES.map((s) => (
+            <button key={s} type="button" aria-pressed={side === s} onClick={() => setSide(s)}>
+              {t(`settings.${s}`)}
+            </button>
+          ))}
         </div>
         <span className="muted small-text">{t("settings.plusHint")}</span>
       </div>
