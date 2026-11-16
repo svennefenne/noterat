@@ -15,11 +15,20 @@ const PAGE = `<html><head><meta charset="utf-8"><script type="application/ld+jso
 "recipeInstructions":["Vispa ägg och mjölk.","Stek tunna pannkakor."]}</script></head><body>Pannkakor</body></html>`;
 const PLAIN = `<html><head><title>Mormors bullar</title></head><body><h1>Mormors bullar</h1><ul><li>5 dl mjöl</li></ul></body></html>`;
 const PHOTO = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
+// (pictures big enough to be offered; a tiny one is an icon)
+const jpeg = (n: number) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(4096, n)]);
+const image = (url: string, body: Buffer): [string, Fetched] => [url, { url, type: "image/jpeg", body }];
 
 const pages: Record<string, Fetched> = {
   "https://recept.example.se/pannkakor": { url: "https://recept.example.se/pannkakor", type: "text/html; charset=utf-8", body: Buffer.from(PAGE) },
   "https://bilder.example.se/pannkakor.jpg": { url: "https://bilder.example.se/pannkakor.jpg", type: "image/jpeg", body: PHOTO },
   "https://blogg.example.se/bullar": { url: "https://blogg.example.se/bullar", type: "text/html", body: Buffer.from(PLAIN) },
+  ...Object.fromEntries([
+    image("https://blogg.example.se/bullar-stor.jpg", jpeg(1)),
+    image("https://blogg.example.se/bullar-deg.jpg", jpeg(2)),
+    image("https://cdn.example.se/samma-som-stor.jpg", jpeg(1)),
+    image("https://blogg.example.se/ikon.jpg", PHOTO),
+  ]),
 };
 const fakeFetch = async (url: string) => {
   if (url.startsWith("http://192.168.")) throw new FetchFailed("that address isn't on the internet", "not_public");
@@ -65,6 +74,22 @@ describe("importing a recipe", () => {
     await until(() => readRecipe(r.doc).import?.status === "done", "the recipe to be read");
     expect(readRecipe(r.doc)).toMatchObject({ title: "Mormors bullar", servings: 30 });
     expect(recipeIngredients(r.doc).toString()).toBe("5 dl mjöl");
+  });
+
+  it("offers the page's pictures to choose from when the worker guessed, the likeliest already chosen", async () => {
+    const { base, ada, id, r } = await recipeFrom("https://blogg.example.se/bullar", { workerToken: WORKER });
+    await call(base, "POST", `/api/objects/${id}/import`, ada.token);
+    const job = ((await (await worker(base, "/next", { worker: "w", kinds: ["recipe"] })).json()) as { job: { id: string } }).job;
+    const images = ["https://blogg.example.se/bullar-stor.jpg", "https://blogg.example.se/ikon.jpg", "https://blogg.example.se/finns-inte.jpg", "https://blogg.example.se/bullar-deg.jpg", "https://cdn.example.se/samma-som-stor.jpg", "file:///etc/passwd"];
+    await worker(base, `/jobs/${job.id}/done`, { recipe: { title: "Mormors bullar", ingredients: ["5 dl mjöl", "2 dl mjölk"], steps: [], image: images[0], images, guessed: true } });
+    await until(() => readRecipe(r.doc).import?.status === "done", "the recipe to be read");
+    const recipe = readRecipe(r.doc);
+    expect(recipe.guessed).toBe(true);
+    // the two pictures there are (the icon too small, one not found, one the same as another, one not on the web)
+    expect(recipe.photoChoices.map((p) => p.hash)).toEqual([sha(new Uint8Array(jpeg(1))), sha(new Uint8Array(jpeg(2)))]);
+    expect(recipe.photos.map((p) => p.hash)).toEqual([sha(new Uint8Array(jpeg(1)))]);
+    const other = recipe.photoChoices[1]!.hash;
+    expect((await fetch(`${base}/api/files/${other}`, { headers: { Authorization: `Bearer ${ada.token}` } })).status).toBe(200);
   });
 
   it("says why when it can't: no recipe and no worker, a page not found, an address at home", async () => {

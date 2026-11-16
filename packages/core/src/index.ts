@@ -16,6 +16,7 @@ export * from "./files";
 export * from "./home";
 export * from "./household";
 export * from "./ingredients";
+export * from "./units";
 export * from "./journal";
 export * from "./lists";
 export * from "./look";

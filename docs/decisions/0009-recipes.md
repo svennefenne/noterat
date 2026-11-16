@@ -20,8 +20,21 @@ servings, put on the shopping list, shared live, and exported as a PDF.
   schema.org `Recipe` (JSON-LD). Without one, the page goes to the worker as a file, and the worker reads it
   with **recipe-scrapers** (a job of the kind `recipe`; the worker never fetches anything itself). Either way
   the server writes the recipe into the document and fetches its photo the same careful way.
+- **A page with no recipe a program can see** (a blog post with no schema.org data, on a site
+  recipe-scrapers doesn't know) is read by its headings, in the worker: the list under a heading such as
+  "Ingredienser" or "Ingredients", and the one under "Gör så här" or "Instructions". It's a guess, and the
+  recipe says so (`meta.guessed`) until someone has looked it over. Which of such a page's pictures is the
+  recipe's is a guess too, so the worker sends them all (up to 12, no logos, icons or pictures beside the
+  post); the server fetches them the same careful way, keeps them as the recipe's files, puts the likeliest
+  among its photos and the rest in `photoChoices`, and the app offers them as thumbnails to choose from.
+  When the choosing's done, the choices and the guess go (the files stay, as any removed photo's do).
 - **Scaling happens on the device**: core's `ingredients.ts` reads a line's amount ("1 1/2 dl", "½ tsk",
   "2–3", "1,5 kg") and writes it scaled, in Swedish ("3 dl", "¾ tsk"); a line without an amount stays.
+- **American measures are converted on the device, when asked**: core's `units.ts` turns cups, ounces,
+  pounds, tablespoons, teaspoons, sticks of butter, °F and inches into dl, msk, tsk, g, kg, l, °C and cm,
+  rounded as a cook would (a cup is 2,4 dl), and keeps a metric measure the recipe gives beside the other.
+  It's only shown, in the ingredients, the method, the PDF and the shopping list; the recipe keeps its own
+  words. The app offers it on a recipe that uses such measures, and remembers the choice on the device.
 - **To the shopping list**: the scaled lines, as rows in a list picked (core's `addTextRows`).
 - **The PDF is made on the device** (pdf-lib), offline too, and saved or shared: a download on the web,
   the phone's share sheet in the app (`@capacitor/filesystem` and `@capacitor/share`), which also gives a
@@ -30,5 +43,8 @@ servings, put on the shopping list, shared live, and exported as a PDF.
 ## Consequences
 
 - Recipes from most Swedish sites (they publish schema.org data) import at once; others wait for the
-  worker, and without a worker they say so.
+  worker, and without a worker they say so. A page the worker can only guess at imports too, marked as a
+  guess; a page with no list under an ingredients heading still has no recipe.
+- A guessed import fetches up to 12 pictures, and the ones not chosen stay on the server as the recipe's
+  files.
 - The server makes outgoing requests for the first time; the address check keeps them to the internet.

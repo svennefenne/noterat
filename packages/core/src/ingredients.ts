@@ -14,8 +14,8 @@ const NICE: [number, string][] = [
   [0.75, "¾"],
 ];
 
-// a number: "1", "1,5", "1.5", "1 1/2", "1½", "½", "3/4"
-const NUM = String.raw`(?:\d+(?:[.,]\d+)?(?:\s*[½⅓⅔¼¾⅕⅛⅜⅝⅞]|\s+\d+\/\d+)?|\d+\/\d+|[½⅓⅔¼¾⅕⅛⅜⅝⅞])`;
+// a number: "1", "1,5", "1.5", "1 1/2", "1½", "½", "3/4" (as a regular expression's source: units.ts too)
+export const NUM = String.raw`(?:\d+(?:[.,]\d+)?(?:\s*[½⅓⅔¼¾⅕⅛⅜⅝⅞]|\s+\d+\/\d+)?|\d+\/\d+|[½⅓⅔¼¾⅕⅛⅜⅝⅞])`;
 const AMOUNT = new RegExp(String.raw`^(\s*(?:ca\.?\s+|cirka\s+|about\s+)?)(${NUM})(?:\s*[-–]\s*(${NUM}))?(?=\s|[a-zåäöA-ZÅÄÖ]|$)`, "i");
 
 export function readNumber(s: string): number | null {

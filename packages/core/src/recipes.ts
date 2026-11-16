@@ -11,6 +11,9 @@ import type { Transcription, TranscriptionStatus } from "./memos";
  * - steps: a Y.Text of Markdown
  * - tags: a Y.Array of strings; photos: a Y.Array of photos by their file's hash
  * - import: how importing from the source is coming along (wanted, queued, working, done, failed)
+ * - photoChoices: the page's pictures, when it wasn't clear which is the recipe's, to choose from
+ *   (meta's guessed: the recipe was read from the page's headings, to be looked over); both go when
+ *   the choosing is done
  */
 
 export interface RecipeView {
@@ -24,7 +27,13 @@ export interface RecipeView {
   tags: string[];
   photos: Photo[];
   import: Transcription | null;
+  /** read from the page's headings, not from a recipe on it: worth looking over */
+  guessed: boolean;
+  photoChoices: PhotoChoice[];
 }
+
+/** A picture on the recipe's page, kept as a file of the recipe's, to choose among its photos. */
+export type PhotoChoice = Omit<Photo, "at">;
 
 /** What an import found: the server's own reading (schema.org) or the worker's (recipe-scrapers). */
 export interface ImportedRecipe {
@@ -35,6 +44,10 @@ export interface ImportedRecipe {
   minutes?: number | null;
   description?: string | null;
   image?: string | null;
+  /** the page's pictures to choose from (image, the likeliest, among them): when it's unclear */
+  images?: string[];
+  /** read from the page's headings (the worker's guess) */
+  guessed?: boolean;
 }
 
 export const RECIPE_TITLE_MAX = 200;
@@ -45,6 +58,7 @@ export const recipeSteps = (doc: Y.Doc) => doc.getText("steps");
 const tagsArray = (doc: Y.Doc) => doc.getArray<string>("tags");
 const photosArray = (doc: Y.Doc) => doc.getArray<Photo>("photos");
 const importMap = (doc: Y.Doc) => doc.getMap<unknown>("import");
+const choicesArray = (doc: Y.Doc) => doc.getArray<PhotoChoice>("photoChoices");
 
 const STATUSES: TranscriptionStatus[] = ["wanted", "queued", "working", "done", "failed"];
 const oneLine = (s: string, max: number) => s.replace(/\s+/g, " ").trim().slice(0, max);
@@ -95,6 +109,10 @@ export function readRecipe(doc: Y.Doc): RecipeView {
       .toArray()
       .filter((p) => p && typeof p.hash === "string"),
     import: STATUSES.includes(status) ? { status, error: str(im.get("error")) || undefined, at: Number(im.get("at")) || 0 } : null,
+    guessed: m.get("guessed") === true,
+    photoChoices: choicesArray(doc)
+      .toArray()
+      .filter((p) => p && typeof p.hash === "string"),
   };
 }
 
@@ -139,11 +157,21 @@ export function setImportState(doc: Y.Doc, t: Transcription) {
   });
 }
 
+/** The choosing's done: the pictures not chosen, and the word that it was a guess, go. */
+export function doneChoosing(doc: Y.Doc) {
+  doc.transact(() => {
+    const arr = choicesArray(doc);
+    arr.delete(0, arr.length);
+    meta(doc).delete("guessed");
+  });
+}
+
 /**
  * What an import found, into the recipe: its title (if it has none), servings and time, description,
- * ingredients and steps (only into what's still empty: nothing someone wrote is overwritten), and done.
+ * ingredients and steps (only into what's still empty: nothing someone wrote is overwritten), its
+ * photo, the pictures to choose from (in place of any from before) and whether it's a guess, and done.
  */
-export function putImportedRecipe(doc: Y.Doc, r: ImportedRecipe, photo?: Omit<Photo, "at">) {
+export function putImportedRecipe(doc: Y.Doc, r: ImportedRecipe, photo?: Omit<Photo, "at">, choices: PhotoChoice[] = []) {
   doc.transact(() => {
     const m = meta(doc);
     const now = readRecipe(doc);
@@ -163,7 +191,13 @@ export function putImportedRecipe(doc: Y.Doc, r: ImportedRecipe, photo?: Omit<Ph
           .map((s, i) => `${i + 1}. ${s.replace(/\s*\n\s*/g, " ")}`)
           .join("\n"),
       );
-    if (photo) addRecipePhoto(doc, photo);
+    // (a guess among the page's pictures only when the recipe has none: one let go of stays gone)
+    if (photo && (choices.length < 2 || !now.photos.length)) addRecipePhoto(doc, photo);
+    const arr = choicesArray(doc);
+    arr.delete(0, arr.length);
+    if (choices.length > 1) arr.push(choices.map(({ hash, type, size, width, height }) => ({ hash, type, size, width, height })));
+    if (r.guessed) m.set("guessed", true);
+    else m.delete("guessed");
     setImportState(doc, { status: "done", at: Date.now() });
   });
 }

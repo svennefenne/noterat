@@ -2393,6 +2393,121 @@ a.icon-button {
   gap: 8px;
 }
 
+.recipe-check {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px 14px 14px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-small);
+}
+
+.recipe-check p {
+  margin: 0;
+  max-width: 65ch;
+}
+
+.photo-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* (on a phone, one row to swipe through, out to the panel's edge) */
+@media (max-width: 719px) {
+  .photo-choices {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 96px;
+    width: calc(100% + 14px);
+    margin-right: -14px;
+    padding: 2px 14px 4px 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .photo-choices li {
+    scroll-snap-align: start;
+  }
+}
+
+.photo-choice {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  aspect-ratio: 1;
+  background: var(--hover);
+  border: 0;
+  border-radius: var(--radius-small);
+  outline-offset: 2px;
+  cursor: pointer;
+}
+
+.photo-choice-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.15s ease-out;
+}
+
+.photo-choice[aria-pressed="false"] .photo-choice-img {
+  opacity: 0.72;
+}
+
+.photo-choice:hover .photo-choice-img {
+  opacity: 1;
+}
+
+/* (the ring over the picture, which would hide one on the button itself) */
+.photo-choice::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+}
+
+.photo-choice[aria-pressed="true"]::after {
+  box-shadow: inset 0 0 0 3px var(--accent);
+}
+
+.photo-choice-mark {
+  position: absolute;
+  z-index: 1;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+}
+
+.photo-choice[aria-pressed="true"] .photo-choice-mark {
+  background: var(--accent);
+}
+
+.recipe-check > .secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .recipe-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
@@ -2434,6 +2549,32 @@ a.icon-button {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 6px;
+}
+
+.recipe-measures {
+  margin: 0 0 8px;
+}
+
+.servings-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 4px;
+}
+
+/* (the buttons beside it step the number: the field's own arrows would be a second pair; and room
+   for "120" between them) */
+.servings input {
+  height: 40px;
+  min-height: 40px;
+  padding: 4px 6px;
+  appearance: textfield;
+}
+
+.servings input::-webkit-inner-spin-button,
+.servings input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
 }
 
 .ingredient-list {
