@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Camera, Clock, ExternalLink, Eye, ImagePlus, Minus, MoreVertical, PenLine, Plus, Share2, ShoppingCart, X } from "lucide-react";
+import { Camera, Check, Clock, ExternalLink, Eye, ImagePlus, Minus, MoreVertical, PenLine, Plus, Share2, ShoppingCart, X } from "lucide-react";
 import { Link } from "wouter";
 import type * as Y from "yjs";
 import {
   addRecipePhoto,
   addTextRows,
   canAddRows,
+  doneChoosing,
+  foreignMeasures,
   ingredientLines,
   objectDocName,
   readList,
@@ -17,8 +19,10 @@ import {
   scaleLine,
   setRecipeMeta,
   setRecipeTags,
+  toMetric,
   writeMinutes,
   type MemberRole,
+  type RecipeView,
 } from "@noterat/core";
 import { ApiError, isNative } from "../lib/api";
 import { useDates } from "../lib/dates";
@@ -71,7 +75,12 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
   const base = recipe.servings;
   const want = servings ?? base;
   const factor = base && want ? want / base : 1;
-  const lines = ingredientLines(ingredients).map((l) => scaleLine(l, factor));
+  // American measures shown in metric ones, when that's asked for (on this device, for every recipe)
+  const [measures, setMeasures] = useStored<"own" | "metric">("noterat.recipe.measures", "own");
+  const foreign = foreignMeasures(`${ingredients}\n${steps}`, lang);
+  const metric = measures === "metric" && foreign.length > 0;
+  const lines = ingredientLines(ingredients).map((l) => (metric ? toMetric(scaleLine(l, factor), lang) : scaleLine(l, factor)));
+  const shownSteps = metric ? toMetric(steps, lang) : steps;
   const title = recipeTitle(recipe, ingredients) || t("untitled.recipe");
 
   const [retry, setRetry] = useState(0);
@@ -117,7 +126,7 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
         title,
         meta,
         ingredients: lines,
-        steps,
+        steps: shownSteps,
         photo: first ? { bytes: new Uint8Array(await first.arrayBuffer()), type: first.type } : undefined,
         footer: `Noterat · ${dates.day(new Date(), { year: true })}`,
       });
@@ -206,6 +215,8 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
         {problem && <Problem>{problem}</Problem>}
       </div>
 
+      {!readOnly && (recipe.guessed || recipe.photoChoices.length > 0) && <ToCheck doc={doc} recipe={recipe} />}
+
       {(recipe.photos.length > 0 || !readOnly) && (
         <div className="recipe-photos">
           {recipe.photos.map((p) => (
@@ -245,14 +256,24 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
               </button>
               {mode === "write" && !readOnly ? (
                 <input type="number" min={1} value={base ?? ""} onChange={(e) => setRecipeMeta(doc, { servings: Number(e.target.value) || null })} aria-label={t("recipe.servings")} />
+              ) : base && want ? (
+                <ServingsField value={want} onChange={setServings} />
               ) : (
-                <span>{want ? t("recipe.servingsN", { n: want }) : t("recipe.noServings")}</span>
+                <span>{t("recipe.noServings")}</span>
               )}
               <button type="button" className="icon-button" onClick={() => setServings((want ?? 4) + 1)} aria-label={t("recipe.more")} disabled={!base && mode === "read"}>
                 <Plus aria-hidden size={16} />
               </button>
             </span>
           </div>
+          {foreign.length > 0 && (mode === "read" || readOnly) && (
+            <p className="recipe-measures small-text">
+              <span className="muted">{metric ? t("recipe.inMetric") : t("recipe.measuresIn", { units: new Intl.ListFormat(lang, { type: "conjunction" }).format(foreign) })}</span>{" "}
+              <button type="button" className="link-button" onClick={() => setMeasures(metric ? "own" : "metric")}>
+                {t(metric ? "recipe.ownMeasures" : "recipe.toMetric")}
+              </button>
+            </p>
+          )}
           {mode === "write" && !readOnly ? (
             <>
               <p className="muted small-text">{t("recipe.ingredientsHint")}</p>
@@ -283,7 +304,7 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
           {mode === "write" && !readOnly ? (
             <MarkdownEditor text={recipeSteps(doc)} awareness={awareness} placeholder={t("recipe.stepsPlaceholder")} label={t("recipe.steps")} />
           ) : (
-            <Preview markdown={steps} empty={t("recipe.noSteps")} />
+            <Preview markdown={shownSteps} empty={t("recipe.noSteps")} />
           )}
         </section>
       </div>
@@ -295,6 +316,77 @@ function RecipePage({ id, role }: { id: string; role: MemberRole }) {
         <ToList lines={lines.filter((l) => !/:$/.test(l))} onDone={() => setShopping(false)} />
       </Dialog>
     </div>
+  );
+}
+
+/**
+ * A recipe the worker read from its page's headings, to be looked over; and the page's pictures, when
+ * it wasn't clear which is the recipe's, to choose among (the likeliest already chosen). Done, and
+ * both go.
+ */
+function ToCheck({ doc, recipe }: { doc: Y.Doc; recipe: RecipeView }) {
+  const { t } = useI18n();
+  const chosen = new Set(recipe.photos.map((p) => p.hash));
+  return (
+    <section className="recipe-check" aria-label={t("recipe.check")}>
+      {recipe.guessed && <p>{t("recipe.guessed")}</p>}
+      {recipe.photoChoices.length > 0 && (
+        <>
+          <p className="muted small-text">{t("recipe.pickPhotos")}</p>
+          <ul className="photo-choices">
+            {recipe.photoChoices.map((p, i) => {
+              const on = chosen.has(p.hash);
+              return (
+                <li key={p.hash}>
+                  <button type="button" className="photo-choice" aria-pressed={on} aria-label={t("recipe.photoN", { n: i + 1 })} onClick={() => (on ? removeRecipePhoto(doc, p.hash) : addRecipePhoto(doc, p))}>
+                    <Photo hash={p.hash} className="photo-choice-img" />
+                    <span className="photo-choice-mark" aria-hidden>
+                      {on && <Check size={16} strokeWidth={3} />}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+      <button type="button" className="secondary small" onClick={() => doneChoosing(doc)}>
+        <Check aria-hidden size={16} /> {t("recipe.checked")}
+      </button>
+    </section>
+  );
+}
+
+/**
+ * How many servings to see the recipe for: typed (the field can be emptied on the way to "12"; what
+ * isn't a number of servings is let go of when leaving it), or a step at a time with the buttons.
+ */
+function ServingsField({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const { t } = useI18n();
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <label className="servings-field">
+      <input
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={999}
+        value={draft ?? String(value)}
+        onFocus={(e) => {
+          setDraft(String(value));
+          e.currentTarget.select();
+        }}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          const n = Math.round(Number(e.target.value));
+          if (n >= 1 && n <= 999) onChange(n);
+        }}
+        onBlur={() => setDraft(null)}
+        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+        aria-label={t("recipe.servings")}
+      />
+      <span>{t("recipe.servingsWord")}</span>
+    </label>
   );
 }
 

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
 import {
+  addRecipePhoto,
   cleanUrl,
+  doneChoosing,
   initRecipe,
   putImportedRecipe,
   readDuration,
@@ -11,6 +13,7 @@ import {
   readServings,
   recipeIngredients,
   recipeSteps,
+  removeRecipePhoto,
   scaleLine,
   searchable,
   writeNumber,
@@ -83,6 +86,34 @@ describe("a page's schema.org recipe", () => {
     expect(recipeIngredients(doc).toString()).toBe("500 g blandfärs\n1 dl ströbröd\n1 ägg\n2 dl mjölk");
     expect(recipeSteps(doc).toString()).toBe("Mitt eget sätt.");
     expect(searchable("recipe", "r", doc).text).toContain("ströbröd");
+  });
+
+  it("a guess comes with the pictures to choose from, until the choosing's done", () => {
+    const doc = new Y.Doc();
+    initRecipe(doc, { source: "https://blogg.example.se/bullar", by: 1, importing: true });
+    const pic = (c: string) => ({ hash: c.repeat(64), type: "image/jpeg", size: 5000, width: 0, height: 0 });
+    putImportedRecipe(doc, { title: "Bullar", ingredients: ["5 dl mjöl", "2 dl mjölk"], guessed: true }, pic("a"), [pic("a"), pic("b"), pic("c")]);
+    let r = readRecipe(doc);
+    expect(r.guessed).toBe(true);
+    expect(r.photoChoices.map((p) => p.hash[0])).toEqual(["a", "b", "c"]);
+    expect(r.photos.map((p) => p.hash[0])).toEqual(["a"]);
+    doneChoosing(doc);
+    r = readRecipe(doc);
+    expect(r).toMatchObject({ guessed: false, photoChoices: [] });
+    expect(r.photos).toHaveLength(1);
+
+    // fetched again, with another chosen: the guess isn't put back
+    removeRecipePhoto(doc, "a".repeat(64));
+    addRecipePhoto(doc, pic("b"));
+    putImportedRecipe(doc, { title: "Bullar", guessed: true }, pic("a"), [pic("a"), pic("b"), pic("c")]);
+    expect(readRecipe(doc).photos.map((p) => p.hash[0])).toEqual(["b"]);
+    doneChoosing(doc);
+
+    // a single picture is no choice; and fetched again from a page with a recipe, it's no guess
+    putImportedRecipe(doc, { title: "Bullar", guessed: true }, pic("d"), [pic("d")]);
+    expect(readRecipe(doc).photoChoices).toEqual([]);
+    putImportedRecipe(doc, { title: "Bullar" });
+    expect(readRecipe(doc).guessed).toBe(false);
   });
 
   it("links are made whole, or turned down", () => {

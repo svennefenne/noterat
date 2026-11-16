@@ -1,5 +1,6 @@
 """Reading recipes with recipe-scrapers: its own scraper for a site it knows (arla.se, ica.se, koket.se
-and some 600 others), else its reading of the page's schema.org Recipe, as JSON-LD or microdata.
+and some 600 others), else its reading of the page's schema.org Recipe, as JSON-LD or microdata;
+and a page with neither read by its headings (headings.py), as a guess.
 
 Only the page the server fetched is read: recipe-scrapers is handed the HTML and the address it came
 from (which says which site it is), and never asked to fetch anything (its online mode stays off).
@@ -11,6 +12,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from .headings import read_by_headings
 from .recipe import DESCRIPTION_LIMIT, TITLE_LIMIT, NoRecipe, Recipe, image_of, line, lines, minutes_of, servings_of, steps
 
 log = logging.getLogger("noterat_worker")
@@ -54,7 +56,7 @@ class Scraper:
             # data; a page with none raises NoSchemaFoundInWildMode
             scraper = scrape_html(html, org_url=url, supported_only=False)
         except NoSchemaFoundInWildMode:
-            raise NoRecipe("no recipe was found on the page") from None
+            return self._by_headings(html, url)
 
         # Each field on its own: recipe-scrapers raises for one the page hasn't got (and a site's own
         # scraper may trip over a page laid out differently), and that mustn't lose the others.
@@ -83,6 +85,13 @@ class Scraper:
             missing=missing,
         )
         if not recipe.found():
+            return self._by_headings(html, url)
+        return recipe
+
+    @staticmethod
+    def _by_headings(html: str, url: str) -> Recipe:
+        recipe = read_by_headings(html, url)
+        if recipe is None:
             raise NoRecipe("no recipe was found on the page")
         return recipe
 

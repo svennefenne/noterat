@@ -91,8 +91,14 @@ How it reads a recipe (a `recipe` job: `{ id, kind: "recipe", files: [{ hash, ty
   knows (some 600, `arla.se`, `ica.se`, `koket.se` and `recept.se` among them) its own scraper,
   otherwise the page's schema.org `Recipe` as JSON-LD or microdata. Each field is read on its own, so
   one the page hasn't got doesn't lose the others.
+- **A page without either** is read by its headings (`headings.py`): the first heading over the
+  ingredients ("Ingredienser", "Du behöver", "Ingredients", …) with a list of two lines or more under
+  it, its own parts ("Till såsen:") but not what's after ("Tips"), and the method under "Gör så här",
+  "Instructions" or the like (a numbered list first, else a list, else its paragraphs). The title is
+  the post's `<h1>`, the picture its `og:image`, and the pictures in the post are sent as `images` to
+  choose from. Such a recipe is sent with `guessed: true`.
 - **What's sent.** `done` with `{ recipe: { title, ingredients, steps, servings, minutes, image,
-  description } }`: `ingredients` and `steps` are lists of strings (steps from
+  description } }` (and `images` and `guessed` for a recipe read by its headings): `ingredients` and `steps` are lists of strings (steps from
   `instructions_list()`), whitespace made single spaces, empty ones left out, at most 200 of each, a
   line at most 500 characters (a longer step is split between its sentences rather than cut). `title`
   is at most 200 characters, `description` 1000; `servings` is the first number of what the page says

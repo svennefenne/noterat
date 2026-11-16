@@ -51,6 +51,11 @@ class Recipe:
     minutes: int | None = None
     image: str | None = None
     description: str | None = None
+    # the pictures on the page to choose from, the likeliest (image) first: only when it's
+    # uncertain which is the recipe's (read_by_headings)
+    images: list[str] = field(default_factory=list)
+    # read from the page's headings rather than its recipe: to be looked over
+    guessed: bool = False
     # not sent: what read it ("arla.se", recipe-scrapers' scraper for the site, or "schema.org", its
     # reading of any page's schema.org data), and the fields it couldn't find, with why
     read_by: str = ""
@@ -61,7 +66,7 @@ class Recipe:
         return bool(self.title or self.ingredients)
 
     def as_json(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "title": self.title,
             "ingredients": self.ingredients,
             "steps": self.steps,
@@ -70,6 +75,12 @@ class Recipe:
             "image": self.image,
             "description": self.description,
         }
+        # (only when there's something to say: a recipe read from its recipe is sent as before)
+        if len(self.images) > 1:
+            out["images"] = self.images
+        if self.guessed:
+            out["guessed"] = True
+        return out
 
 
 class UndecodablePage(Exception):
