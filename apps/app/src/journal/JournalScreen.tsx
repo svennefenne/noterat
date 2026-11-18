@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Image, Mic, PenLine, Rows3, Users } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import type * as Y from "yjs";
@@ -6,6 +6,7 @@ import { dayOf, entryBody, entryPreview, entryTitle, initEntry, readEntry, type 
 import { useDates, type Dates } from "../lib/dates";
 import { useLinkedAction } from "../lib/deepLinks";
 import { useI18n } from "../lib/i18n";
+import { useSwipe } from "../lib/swipe";
 import { useDocsValues, useHomeItems, useSession, useSyncState } from "../lib/sync-react";
 import { useFileUrl } from "../things/useFileUrl";
 import { useStored } from "../ui";
@@ -178,6 +179,9 @@ function Calendar({ entries, onWrite }: { entries: Card[]; onWrite: (day: string
   };
   const weekdays = dates.weekdays("narrow");
   const onDay = byDay.get(picked) ?? [];
+  // (swiping the month sideways goes to the next month, or back)
+  const grid = useRef<HTMLDivElement>(null);
+  useSwipe(grid, shift);
 
   return (
     <div className="calendar">
@@ -190,7 +194,7 @@ function Calendar({ entries, onWrite }: { entries: Card[]; onWrite: (day: string
           <ChevronRight aria-hidden size={20} />
         </button>
       </div>
-      <div className="calendar-grid" role="grid">
+      <div ref={grid} className="calendar-grid" role="grid" data-swipe="">
         {weekdays.map((w, i) => (
           <span key={`w${i}`} className="calendar-weekday" aria-hidden>
             {w}
