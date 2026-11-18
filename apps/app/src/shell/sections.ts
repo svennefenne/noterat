@@ -23,9 +23,11 @@ export const isIn = (location: string, type: SectionType) => location === SECTIO
 
 /**
  * Where a swipe goes from a section's own page: the next section, or the one before, round from the
- * last to the first. Anywhere else (the start page, something open in a section) it goes nowhere.
+ * last to the first. From the start page it starts the round: the first section, or (back) the last.
+ * Anywhere else (something open in a section, the settings) it goes nowhere.
  */
 export function sectionBeside(location: string, way: 1 | -1): string | null {
+  if (location === "/") return SECTION[(way === 1 ? SECTIONS[0] : SECTIONS[SECTIONS.length - 1]!).type];
   const at = SECTIONS.findIndex(({ type }) => location === SECTION[type]);
   if (at < 0) return null;
   return SECTION[SECTIONS[(at + way + SECTIONS.length) % SECTIONS.length]!.type];
