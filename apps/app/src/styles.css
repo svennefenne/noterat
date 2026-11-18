@@ -2358,9 +2358,9 @@ a.icon-button {
   text-decoration: none;
 }
 
-/* ───────────── many sections (phase 5): icons only on a narrow computer ───────────── */
+/* ───────────── many sections (phase 5): icons only on a computer too narrow for all their names ───────────── */
 
-@media (min-width: 720px) and (max-width: 1179px) {
+@media (min-width: 720px) and (max-width: 1499px) {
   .section-link span {
     display: none;
   }
@@ -5550,4 +5550,13 @@ p.to-budget a,
 .settings-saved {
   min-height: 1.5em;
   margin: 8px 0 0;
+}
+
+/* ───────────── swiping sideways: between sections, and a calendar's months ───────────── */
+
+/* (up and down, and pinching, stay the browser's; sideways is the swipe's) */
+.content.swipes,
+.month-grid,
+.calendar-grid {
+  touch-action: pan-y pinch-zoom;
 }

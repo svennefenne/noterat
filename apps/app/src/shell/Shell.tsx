@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Bell, Cloud, CloudOff, HardDrive, Loader, Menu as MenuIcon, Search, UserRound } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { isApp } from "../lib/api";
@@ -8,7 +8,8 @@ import { pathOf, SECTION } from "../lib/things";
 import { Menu, MenuItem, Problem } from "../ui";
 import { NavDrawer } from "./NavDrawer";
 import { PlusButton } from "./PlusButton";
-import { isIn, SECTIONS } from "./sections";
+import { useSwipe } from "../lib/swipe";
+import { isIn, sectionBeside, SECTIONS } from "./sections";
 import { UpdateBanner } from "./UpdateBanner";
 import { BUILD, versionText } from "../lib/updates";
 
@@ -22,7 +23,20 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
   const { user, base, lock } = useSession();
   const { settings } = useLock();
   const [drawer, setDrawer] = useState(false);
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
+  // (on a section's own page, a sideways swipe goes to the next section, or back)
+  const main = useRef<HTMLElement>(null);
+  const swipes = sectionBeside(location, 1) !== null;
+  useSwipe(
+    main,
+    (way) => {
+      const to = sectionBeside(location, way);
+      if (!to) return;
+      navigate(to);
+      window.scrollTo(0, 0);
+    },
+    swipes,
+  );
   return (
     <div className="app">
       <header className="topbar">
@@ -51,7 +65,7 @@ export function Shell({ children, onLogout }: { children: ReactNode; onLogout: (
           </Menu>
         </div>
       </header>
-      <main className="content">
+      <main ref={main} className={swipes ? "content swipes" : "content"} data-swipe={swipes ? "" : undefined}>
         <UpdateBanner />
         {children}
       </main>

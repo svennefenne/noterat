@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CalendarPlus, ChevronLeft, ChevronRight, Eye, EyeOff, Link2, MoreVertical, Plus, RefreshCw, Rss, Smartphone, Users } from "lucide-react";
 import type * as Y from "yjs";
 import { CALENDAR_COLORS, initCalendar, occurrences, readCalendar, wallOf, type CalendarView, type MemberRole, type Occurrence } from "@noterat/core";
@@ -6,6 +6,7 @@ import { ApiError } from "../lib/api";
 import { useLinkedAction } from "../lib/deepLinks";
 import { useDates } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
+import { useSwipe } from "../lib/swipe";
 import { canReadPhone, phoneAccess, phoneCalendars, phoneEvents, type PhoneCalendar } from "../lib/phoneCalendars";
 import { useDocsValues, useHomeItems, useSession, useSyncState } from "../lib/sync-react";
 import { ShareDialog } from "../things/ShareDialog";
@@ -111,6 +112,9 @@ export function CalendarScreen() {
     d.setMonth(d.getMonth() + n);
     setMonth(wallOf(d, true).slice(0, 7));
   };
+  // (swiping the month sideways goes to the next month, or back; beside it, to the next section)
+  const grid = useRef<HTMLDivElement>(null);
+  useSwipe(grid, shift, homeLoaded);
   const weekdays = dates.weekdays("short");
   const cells = Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
   const dayList = onDay(picked);
@@ -147,7 +151,7 @@ export function CalendarScreen() {
                 {t("calendar.today")}
               </button>
             </div>
-            <div className="month-grid" role="grid">
+            <div ref={grid} className="month-grid" role="grid" data-swipe="">
               {weekdays.map((w) => (
                 <span key={w} className="calendar-weekday" aria-hidden>
                   {w}
