@@ -168,7 +168,7 @@ function Splits() {
                   <span className="card-title">{c.title || t("untitled.split")}</span>
                   <span className="card-meta">
                     <span>{t("split.cardMeta", { total: formatAmount(c.total, lang), n: c.people })}</span>
-                    {c.net !== 0 && <span className={c.net > 0 ? "split-net plus" : "split-net minus"}>{t(c.net > 0 ? "split.youGet" : "split.youPay", { amount: formatAmount(Math.abs(c.net), lang) })}</span>}
+                    {c.net !== 0 && <span className={c.net > 0 ? "split-net owed" : "split-net owing"}>{t(c.net > 0 ? "split.youGet" : "split.youPay", { amount: formatAmount(Math.abs(c.net), lang) })}</span>}
                     {item.role !== "owner" && (
                       <span className="badge">
                         <Users aria-hidden size={14} /> {t("lists.sharedWithYou")}

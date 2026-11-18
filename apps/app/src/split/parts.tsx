@@ -167,7 +167,7 @@ export function SendForm({ id, view, onDone, onEditPerson }: { id: string; view:
                 />
                 <span className="split-recipient">
                   <strong>{p.name}</strong>
-                  <span className={net < 0 ? "split-part minus" : net > 0 ? "split-part plus" : "split-part"}>{part(net)}</span>
+                  <span className={net < 0 ? "split-part owing" : net > 0 ? "split-part owed" : "split-part"}>{part(net)}</span>
                   {ok ? (
                     <span className="muted small-text split-email">{p.email}</span>
                   ) : (

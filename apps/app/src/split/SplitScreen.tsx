@@ -102,7 +102,7 @@ function SplitPage({ id, role }: { id: string; role: MemberRole }) {
           const me = p.userId === user.id;
           const number = swish ? swishNumber(p.phone) : "";
           const sub = me ? t("split.you") : number ? formatPhone(number) : p.email || t("split.noDetails");
-          const tone = b.net > 0 ? "plus" : b.net < 0 ? "minus" : "even";
+          const tone = b.net > 0 ? "owed" : b.net < 0 ? "owing" : "even";
           return (
             <li key={p.id}>
               <button type="button" className="split-person" disabled={readOnly} onClick={() => setEditing({ kind: "person", id: p.id })} aria-label={t("split.editPerson", { name: p.name })}>
