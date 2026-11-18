@@ -44,33 +44,55 @@ function LockScreen({ what, onLogout }: { what: "journal" | "app"; onLogout?: ()
     setProblem(t("lock.wrongPin"));
   }
 
+  const pinForm = settings.pin && (
+    <form onSubmit={(e) => void submit(e)} className="stack">
+      <label className="field">
+        <span>{t("lock.pin")}</span>
+        <input type="password" inputMode="numeric" autoComplete="off" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))} data-autofocus autoFocus />
+      </label>
+      <button type="submit" className={settings.method === "biometric" ? "secondary" : "primary"} disabled={pin.length < 4}>
+        {t("lock.unlock")}
+      </button>
+    </form>
+  );
+
+  // (the whole app: just the name, as the phone's own fingerprint prompt says the rest on top of it)
+  if (what === "app")
+    return (
+      <main className="page app-lock">
+        <div className="app-lock-main">
+          <div className="app-lock-brand">
+            <img src="/icon.svg" alt="" width={72} height={72} />
+            <h1>Noterat</h1>
+          </div>
+          {settings.method === "biometric" && (
+            <button type="button" className="app-lock-finger" onClick={() => void finger()} aria-label={reason} title={reason}>
+              <Fingerprint aria-hidden size={26} />
+            </button>
+          )}
+          {pinForm}
+          {problem && <Problem>{problem}</Problem>}
+        </div>
+        {onLogout && (
+          <button type="button" className="link-button small-text app-lock-out" onClick={() => confirm(t("lock.logoutConfirm")) && onLogout()}>
+            {t(settings.pin ? "lock.forgot" : "menu.logout")}
+          </button>
+        )}
+      </main>
+    );
+
   return (
-    <div className={what === "app" ? "page lock-screen" : "lock-screen"}>
+    <div className="lock-screen">
       <div className="card lock-card">
         <Lock aria-hidden size={32} className="lock-icon" />
-        <h1>{t(what === "app" ? "lock.appLocked" : "lock.journalLocked")}</h1>
+        <h1>{t("lock.journalLocked")}</h1>
         {settings.method === "biometric" && (
           <button type="button" className="primary" onClick={() => void finger()}>
             <Fingerprint aria-hidden size={20} /> {t("lock.unlock")}
           </button>
         )}
-        {settings.pin && (
-          <form onSubmit={(e) => void submit(e)} className="stack">
-            <label className="field">
-              <span>{t("lock.pin")}</span>
-              <input type="password" inputMode="numeric" autoComplete="off" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))} data-autofocus autoFocus />
-            </label>
-            <button type="submit" className={settings.method === "biometric" ? "secondary" : "primary"} disabled={pin.length < 4}>
-              {t("lock.unlock")}
-            </button>
-          </form>
-        )}
+        {pinForm}
         {problem && <Problem>{problem}</Problem>}
-        {onLogout && (
-          <button type="button" className="link-button small-text" onClick={() => confirm(t("lock.logoutConfirm")) && onLogout()}>
-            {t("lock.forgot")}
-          </button>
-        )}
       </div>
     </div>
   );

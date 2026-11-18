@@ -2086,6 +2086,71 @@ a.icon-button {
   text-align: center;
 }
 
+/* the whole app locked: the name in the middle, the way in under it, logging out out of the way */
+.app-lock {
+  justify-content: space-between;
+}
+
+.app-lock-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  width: min(100%, 280px);
+}
+
+.app-lock-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.app-lock-brand img {
+  border-radius: 16px;
+}
+
+.app-lock-brand h1 {
+  margin: 0;
+  font-size: 1.625rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.app-lock-finger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  min-height: 52px;
+  padding: 0;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.app-lock-finger:hover {
+  background: var(--hover);
+}
+
+.app-lock-main .stack {
+  width: 100%;
+}
+
+.app-lock-main input[type="password"] {
+  font-size: 1.5rem;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+
+.app-lock-out {
+  color: var(--muted);
+}
+
 .pin-fields {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3367,13 +3432,13 @@ p.to-budget {
   font-variant-numeric: tabular-nums;
 }
 
-.split-net.plus,
-.split-part.plus {
+.split-net.owed,
+.split-part.owed {
   color: var(--accent);
 }
 
-.split-net.minus,
-.split-part.minus {
+.split-net.owing,
+.split-part.owing {
   color: var(--danger);
 }
 
@@ -3520,11 +3585,11 @@ p.to-budget {
   letter-spacing: -0.01em;
 }
 
-.split-balance.plus {
+.split-balance.owed {
   color: var(--accent);
 }
 
-.split-balance.minus {
+.split-balance.owing {
   color: var(--danger);
 }
 
@@ -3560,21 +3625,21 @@ p.to-budget {
   transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.split-bar > .plus {
+.split-bar > .owed {
   left: 50%;
   border-radius: 0 999px 999px 0;
 }
 
-.split-bar > .minus {
+.split-bar > .owing {
   right: 50%;
   border-radius: 999px 0 0 999px;
 }
 
-.split-bar .plus {
+.split-bar .owed {
   background: var(--accent);
 }
 
-.split-bar .minus {
+.split-bar .owing {
   background: var(--danger);
 }
 
